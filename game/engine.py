@@ -10,6 +10,13 @@ DIRECTIONS = {
     'right': (0, 1),
 }
 
+PERPENDICULARS = {
+    'up': ('left', 'right'),
+    'down': ('left', 'right'),
+    'left': ('up', 'down'),
+    'right': ('up', 'down'),
+}
+
 
 @dataclass
 class Player:
@@ -76,3 +83,31 @@ def get_pawn_moves(state, player=None):
             continue
         moves.append(target)
     return moves
+
+
+def get_jump_moves(state, player=None):
+    player = player or state.current_player
+    opponent = next(p for p in state.players if p is not player)
+
+    direction = None
+    for candidate, (dr, dc) in DIRECTIONS.items():
+        row, col = player.position
+        if (row + dr, col + dc) == opponent.position and not is_wall_blocking(state, player.position, candidate):
+            direction = candidate
+            break
+    if direction is None:
+        return []
+
+    dr, dc = DIRECTIONS[direction]
+    orow, ocol = opponent.position
+    straight_landing = (orow + dr, ocol + dc)
+    if in_bounds(straight_landing) and not is_wall_blocking(state, opponent.position, direction):
+        return [straight_landing]
+
+    landings = []
+    for side in PERPENDICULARS[direction]:
+        sdr, sdc = DIRECTIONS[side]
+        landing = (orow + sdr, ocol + sdc)
+        if in_bounds(landing) and not is_wall_blocking(state, opponent.position, side):
+            landings.append(landing)
+    return landings
