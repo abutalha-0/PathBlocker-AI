@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 
 BOARD_SIZE = 9
 WALLS_PER_PLAYER = 10
+WALL_GRID_SIZE = BOARD_SIZE - 1
 
 DIRECTIONS = {
     'up': (-1, 0),
@@ -111,3 +112,36 @@ def get_jump_moves(state, player=None):
         if in_bounds(landing) and not is_wall_blocking(state, opponent.position, side):
             landings.append(landing)
     return landings
+
+
+def can_place_wall(state, orientation, position, player=None):
+    player = player or state.current_player
+    if player.walls_left <= 0:
+        return False
+
+    row, col = position
+    if not (0 <= row < WALL_GRID_SIZE and 0 <= col < WALL_GRID_SIZE):
+        return False
+
+    if orientation == 'horizontal':
+        walls, crossing = state.horizontal_walls, state.vertical_walls
+        if (row, col) in walls or (row, col - 1) in walls or (row, col + 1) in walls:
+            return False
+    elif orientation == 'vertical':
+        walls, crossing = state.vertical_walls, state.horizontal_walls
+        if (row, col) in walls or (row - 1, col) in walls or (row + 1, col) in walls:
+            return False
+    else:
+        raise ValueError(f'unknown orientation: {orientation}')
+
+    return (row, col) not in crossing
+
+
+def place_wall(state, orientation, position, player=None):
+    player = player or state.current_player
+    if not can_place_wall(state, orientation, position, player):
+        raise ValueError(f'illegal wall placement: {orientation} at {position}')
+
+    walls = state.horizontal_walls if orientation == 'horizontal' else state.vertical_walls
+    walls.add(position)
+    player.walls_left -= 1
