@@ -1,3 +1,4 @@
+from collections import deque
 from dataclasses import dataclass, field
 
 BOARD_SIZE = 9
@@ -114,6 +115,28 @@ def get_jump_moves(state, player=None):
     return landings
 
 
+def has_path_to_goal(state, player):
+    start = player.position
+    if start[0] == player.goal_row:
+        return True
+
+    visited = {start}
+    queue = deque([start])
+    while queue:
+        row, col = queue.popleft()
+        for direction, (dr, dc) in DIRECTIONS.items():
+            neighbor = (row + dr, col + dc)
+            if neighbor in visited or not in_bounds(neighbor):
+                continue
+            if is_wall_blocking(state, (row, col), direction):
+                continue
+            if neighbor[0] == player.goal_row:
+                return True
+            visited.add(neighbor)
+            queue.append(neighbor)
+    return False
+
+
 def can_place_wall(state, orientation, position, player=None):
     player = player or state.current_player
     if player.walls_left <= 0:
@@ -134,7 +157,14 @@ def can_place_wall(state, orientation, position, player=None):
     else:
         raise ValueError(f'unknown orientation: {orientation}')
 
-    return (row, col) not in crossing
+    if (row, col) in crossing:
+        return False
+
+    walls.add(position)
+    try:
+        return all(has_path_to_goal(state, p) for p in state.players)
+    finally:
+        walls.discard(position)
 
 
 def place_wall(state, orientation, position, player=None):
