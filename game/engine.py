@@ -175,3 +175,32 @@ def place_wall(state, orientation, position, player=None):
     walls = state.horizontal_walls if orientation == 'horizontal' else state.vertical_walls
     walls.add(position)
     player.walls_left -= 1
+
+
+def get_legal_pawn_targets(state, player=None):
+    player = player or state.current_player
+    return set(get_pawn_moves(state, player)) | set(get_jump_moves(state, player))
+
+
+def is_winner(player):
+    return player.position[0] == player.goal_row
+
+
+def apply_move(state, move):
+    player = state.current_player
+    kind = move[0]
+
+    if kind == 'move':
+        _, target = move
+        if target not in get_legal_pawn_targets(state, player):
+            raise ValueError(f'illegal pawn move: {target}')
+        player.position = target
+    elif kind == 'wall':
+        _, orientation, position = move
+        place_wall(state, orientation, position, player)
+    else:
+        raise ValueError(f'unknown move type: {kind}')
+
+    winner = player if is_winner(player) else None
+    state.turn = 1 - state.turn
+    return winner
