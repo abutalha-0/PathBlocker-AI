@@ -1,3 +1,226 @@
 from django.test import TestCase
 
-# Create your tests here.
+from game.engine import (
+    GameState,
+    apply_move,
+    can_place_wall,
+    get_jump_moves,
+    get_pawn_moves,
+    has_path_to_goal,
+    is_winner,
+    place_wall,
+)
+
+
+class GameStateTests(TestCase):
+    def test_new_game_sets_up_standard_start(self):
+        state = GameState.new_game()
+        self.assertEqual(state.players[0].position, (0, 4))
+        self.assertEqual(state.players[0].goal_row, 8)
+        self.assertEqual(state.players[1].position, (8, 4))
+        self.assertEqual(state.players[1].goal_row, 0)
+        self.assertTrue(all(p.walls_left == 10 for p in state.players))
+        self.assertEqual(state.turn, 0)
+        self.assertIs(state.current_player, state.players[0])
+        self.assertIs(state.opponent, state.players[1])
+
+
+class PawnMovementTests(TestCase):
+    def test_open_start_has_three_moves(self):
+        state = GameState.new_game()
+        moves = get_pawn_moves(state, state.players[0])
+        self.assertCountEqual(moves, [(0, 3), (0, 5), (1, 4)])
+
+    def test_corner_has_only_two_moves(self):
+        state = GameState.new_game()
+        state.players[0].position = (0, 0)
+        moves = get_pawn_moves(state, state.players[0])
+        self.assertCountEqual(moves, [(0, 1), (1, 0)])
+
+    def test_wall_blocks_move_in_that_direction(self):
+        state = GameState.new_game()
+        state.players[0].position = (4, 4)
+        state.horizontal_walls.add((4, 4))
+        moves = get_pawn_moves(state, state.players[0])
+        self.assertNotIn((5, 4), moves)
+        self.assertCountEqual(moves, [(3, 4), (4, 3), (4, 5)])
+
+    def test_opponent_occupied_cell_is_not_a_simple_move(self):
+        state = GameState.new_game()
+        state.players[0].position = (4, 4)
+        state.players[1].position = (5, 4)
+        moves = get_pawn_moves(state, state.players[0])
+        self.assertNotIn((5, 4), moves)
+
+
+class PawnJumpTests(TestCase):
+    def test_straight_jump_over_adjacent_opponent(self):
+        state = GameState.new_game()
+        state.players[0].position = (4, 4)
+        state.players[1].position = (5, 4)
+        self.assertEqual(get_jump_moves(state, state.players[0]), [(6, 4)])
+
+    def test_diagonal_jump_when_opponent_at_board_edge(self):
+        state = GameState.new_game()
+        state.players[0].position = (7, 4)
+        state.players[1].position = (8, 4)
+        landings = get_jump_moves(state, state.players[0])
+        self.assertCountEqual(landings, [(8, 3), (8, 5)])
+
+    def test_diagonal_jump_when_wall_behind_opponent(self):
+        state = GameState.new_game()
+        state.players[0].position = (4, 4)
+        state.players[1].position = (5, 4)
+        state.horizontal_walls.add((5, 4))
+        landings = get_jump_moves(state, state.players[0])
+        self.assertCountEqual(landings, [(5, 3), (5, 5)])
+
+    def test_one_diagonal_blocked_by_wall(self):
+        state = GameState.new_game()
+        state.players[0].position = (4, 4)
+        state.players[1].position = (5, 4)
+        state.horizontal_walls.add((5, 4))
+        state.vertical_walls.add((4, 4))
+        self.assertEqual(get_jump_moves(state, state.players[0]), [(5, 3)])
+
+    def test_no_jump_when_not_adjacent(self):
+        state = GameState.new_game()
+        self.assertEqual(get_jump_moves(state, state.players[0]), [])
+
+    def test_no_jump_when_wall_between_players(self):
+        state = GameState.new_game()
+        state.players[0].position = (4, 4)
+        state.players[1].position = (5, 4)
+        state.horizontal_walls.add((4, 4))
+        self.assertEqual(get_jump_moves(state, state.players[0]), [])
+
+
+class WallPlacementTests(TestCase):
+    def test_valid_placement_adds_wall_and_decrements_count(self):
+        state = GameState.new_game()
+        place_wall(state, 'horizontal', (4, 4), state.players[0])
+        self.assertIn((4, 4), state.horizontal_walls)
+        self.assertEqual(state.players[0].walls_left, 9)
+
+    def test_duplicate_slot_is_invalid(self):
+        state = GameState.new_game()
+        place_wall(state, 'horizontal', (4, 4), state.players[0])
+        self.assertFalse(can_place_wall(state, 'horizontal', (4, 4), state.players[0]))
+
+    def test_adjacent_overlapping_wall_is_invalid(self):
+        state = GameState.new_game()
+        place_wall(state, 'horizontal', (4, 4), state.players[0])
+        self.assertFalse(can_place_wall(state, 'horizontal', (4, 5), state.players[0]))
+        self.assertFalse(can_place_wall(state, 'horizontal', (4, 3), state.players[0]))
+
+    def test_non_overlapping_wall_is_valid(self):
+        state = GameState.new_game()
+        place_wall(state, 'horizontal', (4, 4), state.players[0])
+        self.assertTrue(can_place_wall(state, 'horizontal', (4, 6), state.players[0]))
+
+    def test_crossing_perpendicular_wall_is_invalid(self):
+        state = GameState.new_game()
+        place_wall(state, 'horizontal', (4, 4), state.players[0])
+        self.assertFalse(can_place_wall(state, 'vertical', (4, 4), state.players[0]))
+
+    def test_out_of_range_position_is_invalid(self):
+        state = GameState.new_game()
+        self.assertFalse(can_place_wall(state, 'horizontal', (8, 4), state.players[0]))
+        self.assertFalse(can_place_wall(state, 'horizontal', (-1, 0), state.players[0]))
+
+    def test_no_walls_left_is_invalid(self):
+        state = GameState.new_game()
+        state.players[0].walls_left = 0
+        self.assertFalse(can_place_wall(state, 'horizontal', (2, 2), state.players[0]))
+
+    def test_illegal_placement_raises_and_leaves_state_unchanged(self):
+        state = GameState.new_game()
+        place_wall(state, 'horizontal', (4, 4), state.players[0])
+        with self.assertRaises(ValueError):
+            place_wall(state, 'horizontal', (4, 4), state.players[0])
+
+
+class WallLegalityTests(TestCase):
+    def test_wall_that_leaves_a_path_open_is_valid(self):
+        state = GameState.new_game()
+        self.assertTrue(can_place_wall(state, 'horizontal', (4, 4), state.players[0]))
+
+    def test_wall_that_would_fully_seal_a_player_is_rejected(self):
+        state = GameState.new_game()
+        state.players[0].position = (0, 0)
+        place_wall(state, 'horizontal', (0, 0), state.players[0])
+        self.assertTrue(has_path_to_goal(state, state.players[0]))
+        self.assertFalse(can_place_wall(state, 'vertical', (0, 0), state.players[0]))
+
+    def test_rejected_wall_leaves_state_unmutated(self):
+        state = GameState.new_game()
+        state.players[0].position = (0, 0)
+        place_wall(state, 'horizontal', (0, 0), state.players[0])
+        can_place_wall(state, 'vertical', (0, 0), state.players[0])
+        self.assertEqual(state.vertical_walls, set())
+
+    def test_fully_boxed_corner_has_no_path(self):
+        state = GameState.new_game()
+        state.players[0].position = (0, 0)
+        state.horizontal_walls.add((0, 0))
+        state.vertical_walls.add((0, 1))
+        self.assertFalse(has_path_to_goal(state, state.players[0]))
+
+    def test_detour_around_separated_walls_still_has_path(self):
+        state = GameState.new_game()
+        state.players[0].position = (4, 4)
+        place_wall(state, 'horizontal', (4, 2), state.players[0])
+        place_wall(state, 'horizontal', (4, 4), state.players[0])
+        place_wall(state, 'horizontal', (4, 6), state.players[0])
+        self.assertTrue(has_path_to_goal(state, state.players[0]))
+
+
+class ApplyMoveTests(TestCase):
+    def test_legal_move_updates_position_and_switches_turn(self):
+        state = GameState.new_game()
+        winner = apply_move(state, ('move', (1, 4)))
+        self.assertEqual(state.players[0].position, (1, 4))
+        self.assertEqual(state.turn, 1)
+        self.assertIsNone(winner)
+
+    def test_illegal_move_raises_and_leaves_turn_unchanged(self):
+        state = GameState.new_game()
+        with self.assertRaises(ValueError):
+            apply_move(state, ('move', (5, 5)))
+        self.assertEqual(state.turn, 0)
+
+    def test_wall_move_type_places_wall_and_switches_turn(self):
+        state = GameState.new_game()
+        apply_move(state, ('wall', 'horizontal', (4, 4)))
+        self.assertIn((4, 4), state.horizontal_walls)
+        self.assertEqual(state.players[0].walls_left, 9)
+        self.assertEqual(state.turn, 1)
+
+    def test_illegal_wall_move_raises(self):
+        state = GameState.new_game()
+        apply_move(state, ('wall', 'horizontal', (4, 4)))
+        state.turn = 0
+        with self.assertRaises(ValueError):
+            apply_move(state, ('wall', 'horizontal', (4, 4)))
+
+    def test_win_detected_when_reaching_goal_row(self):
+        state = GameState.new_game()
+        state.players[0].position = (7, 4)
+        state.players[1].position = (8, 8)
+        winner = apply_move(state, ('move', (8, 4)))
+        self.assertIs(winner, state.players[0])
+        self.assertTrue(is_winner(state.players[0]))
+
+    def test_turn_alternates_across_moves(self):
+        state = GameState.new_game()
+        turns = [state.turn]
+        apply_move(state, ('move', (1, 4)))
+        turns.append(state.turn)
+        apply_move(state, ('move', (7, 4)))
+        turns.append(state.turn)
+        self.assertEqual(turns, [0, 1, 0])
+
+    def test_unknown_move_type_raises(self):
+        state = GameState.new_game()
+        with self.assertRaises(ValueError):
+            apply_move(state, ('teleport', (0, 0)))
