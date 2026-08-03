@@ -1,0 +1,14 @@
+body {
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: #14141f;
+    font-family: sans-serif;
+}
+
+#board {
+    background: #1e1e2e;
+    border-radius: 6px;
+}

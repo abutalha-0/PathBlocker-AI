@@ -204,3 +204,20 @@ def apply_move(state, move):
     winner = player if is_winner(player) else None
     state.turn = 1 - state.turn
     return winner
+
+
+def serialize_state(state):
+    return {
+        'board_size': BOARD_SIZE,
+        'turn': state.turn,
+        'players': [
+            {
+                'position': list(p.position),
+                'goal_row': p.goal_row,
+                'walls_left': p.walls_left,
+            }
+            for p in state.players
+        ],
+        'horizontal_walls': [list(w) for w in state.horizontal_walls],
+        'vertical_walls': [list(w) for w in state.vertical_walls],
+    }
