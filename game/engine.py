@@ -221,3 +221,20 @@ def serialize_state(state):
         'horizontal_walls': [list(w) for w in state.horizontal_walls],
         'vertical_walls': [list(w) for w in state.vertical_walls],
     }
+
+
+def deserialize_state(data):
+    players = [
+        Player(
+            position=tuple(p['position']),
+            goal_row=p['goal_row'],
+            walls_left=p['walls_left'],
+        )
+        for p in data['players']
+    ]
+    return GameState(
+        players=players,
+        turn=data['turn'],
+        horizontal_walls={tuple(w) for w in data['horizontal_walls']},
+        vertical_walls={tuple(w) for w in data['vertical_walls']},
+    )
