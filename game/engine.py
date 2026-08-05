@@ -177,6 +177,20 @@ def place_wall(state, orientation, position, player=None):
     player.walls_left -= 1
 
 
+def get_legal_wall_placements(state, player=None):
+    player = player or state.current_player
+    if player.walls_left <= 0:
+        return []
+
+    placements = []
+    for orientation in ('horizontal', 'vertical'):
+        for row in range(WALL_GRID_SIZE):
+            for col in range(WALL_GRID_SIZE):
+                if can_place_wall(state, orientation, (row, col), player):
+                    placements.append((orientation, (row, col)))
+    return placements
+
+
 def get_legal_pawn_targets(state, player=None):
     player = player or state.current_player
     return set(get_pawn_moves(state, player)) | set(get_jump_moves(state, player))

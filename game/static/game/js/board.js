@@ -8,6 +8,8 @@ const WALL_COLOR = '#e0c341';
 const PLAYER_COLORS = ['#4fd8ff', '#ff6b6b'];
 const HIGHLIGHT_COLOR = 'rgba(224, 195, 65, 0.25)';
 const HIGHLIGHT_HOVER_COLOR = 'rgba(224, 195, 65, 0.55)';
+const WALL_GHOST_LEGAL_COLOR = 'rgba(224, 195, 65, 0.55)';
+const WALL_GHOST_ILLEGAL_COLOR = 'rgba(255, 90, 90, 0.55)';
 
 function boardPixelSize(boardSize) {
     return boardSize * CELL + (boardSize - 1) * GAP;
@@ -33,14 +35,33 @@ function drawHighlights(ctx, legalTargets, hoverCell) {
     }
 }
 
+function wallRect(orientation, row, col) {
+    if (orientation === 'horizontal') {
+        return [col * STEP, row * STEP + CELL, 2 * CELL + GAP, GAP];
+    }
+    return [col * STEP + CELL, row * STEP, GAP, 2 * CELL + GAP];
+}
+
 function drawWalls(ctx, state) {
     ctx.fillStyle = WALL_COLOR;
     for (const [row, col] of state.horizontal_walls) {
-        ctx.fillRect(col * STEP, row * STEP + CELL, 2 * CELL + GAP, GAP);
+        ctx.fillRect(...wallRect('horizontal', row, col));
     }
     for (const [row, col] of state.vertical_walls) {
-        ctx.fillRect(col * STEP + CELL, row * STEP, GAP, 2 * CELL + GAP);
+        ctx.fillRect(...wallRect('vertical', row, col));
     }
+}
+
+function drawWallGhost(ctx, hoverWall, legalWalls) {
+    if (!hoverWall) {
+        return;
+    }
+    const { orientation, position } = hoverWall;
+    const isLegal = legalWalls.some(
+        ([o, [r, c]]) => o === orientation && r === position[0] && c === position[1]
+    );
+    ctx.fillStyle = isLegal ? WALL_GHOST_LEGAL_COLOR : WALL_GHOST_ILLEGAL_COLOR;
+    ctx.fillRect(...wallRect(orientation, position[0], position[1]));
 }
 
 function drawPlayers(ctx, state) {
@@ -55,7 +76,7 @@ function drawPlayers(ctx, state) {
     });
 }
 
-function renderBoard(canvas, state, legalTargets, hoverCell) {
+function renderBoard(canvas, state, legalTargets, hoverCell, legalWalls, hoverWall) {
     const size = boardPixelSize(state.board_size);
     canvas.width = size;
     canvas.height = size;
@@ -63,6 +84,7 @@ function renderBoard(canvas, state, legalTargets, hoverCell) {
     const ctx = canvas.getContext('2d');
     drawCells(ctx, state.board_size);
     drawHighlights(ctx, legalTargets, hoverCell);
+    drawWallGhost(ctx, hoverWall, legalWalls);
     drawWalls(ctx, state);
     drawPlayers(ctx, state);
 }
@@ -83,30 +105,70 @@ function cellFromEvent(canvas, boardSize, event) {
     return [row, col];
 }
 
+function wallSlotFromEvent(canvas, boardSize, event) {
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const col = Math.floor(x / STEP);
+    const row = Math.floor(y / STEP);
+    const fx = x - col * STEP;
+    const fy = y - row * STEP;
+
+    const inGapX = fx > CELL;
+    const inGapY = fy > CELL;
+    if (inGapX === inGapY) {
+        // either inside a cell (both false) or in the ambiguous
+        // corner where a horizontal and vertical slot both touch
+        return null;
+    }
+
+    const maxWallCoord = boardSize - 2;
+    let orientation;
+    let position;
+    if (inGapX) {
+        const r = fy < CELL / 2 ? row - 1 : row;
+        orientation = 'vertical';
+        position = [r, col];
+    } else {
+        const c = fx < CELL / 2 ? col - 1 : col;
+        orientation = 'horizontal';
+        position = [row, c];
+    }
+
+    const [r, c] = position;
+    if (r < 0 || r > maxWallCoord || c < 0 || c > maxWallCoord) {
+        return null;
+    }
+    return { orientation, position };
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const canvas = document.getElementById('board');
     const csrfToken = document.querySelector('#csrf-form [name=csrfmiddlewaretoken]').value;
 
     let state = JSON.parse(document.getElementById('game-state').textContent);
     let legalTargets = [];
+    let legalWalls = [];
     let hoverCell = null;
+    let hoverWall = null;
 
-    const redraw = () => renderBoard(canvas, state, legalTargets, hoverCell);
+    const redraw = () => renderBoard(canvas, state, legalTargets, hoverCell, legalWalls, hoverWall);
 
     async function fetchLegalMoves() {
         const response = await fetch('/api/legal-moves');
         const data = await response.json();
         legalTargets = data.targets;
+        legalWalls = data.walls;
     }
 
-    async function movePawn(target) {
-        const response = await fetch('/api/move', {
+    async function submitMove(url, body) {
+        const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': csrfToken,
             },
-            body: JSON.stringify({ target }),
+            body: JSON.stringify(body),
         });
         if (!response.ok) {
             return;
@@ -122,22 +184,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
     canvas.addEventListener('mousemove', (event) => {
         hoverCell = cellFromEvent(canvas, state.board_size, event);
+        hoverWall = hoverCell ? null : wallSlotFromEvent(canvas, state.board_size, event);
         redraw();
     });
 
     canvas.addEventListener('mouseleave', () => {
         hoverCell = null;
+        hoverWall = null;
         redraw();
     });
 
     canvas.addEventListener('click', (event) => {
         const cell = cellFromEvent(canvas, state.board_size, event);
-        if (!cell) {
+        if (cell) {
+            const isLegal = legalTargets.some(([r, c]) => r === cell[0] && c === cell[1]);
+            if (isLegal) {
+                submitMove('/api/move', { target: cell });
+            }
             return;
         }
-        const isLegal = legalTargets.some(([r, c]) => r === cell[0] && c === cell[1]);
-        if (isLegal) {
-            movePawn(cell);
+
+        const wallSlot = wallSlotFromEvent(canvas, state.board_size, event);
+        if (wallSlot) {
+            const isLegal = legalWalls.some(
+                ([o, [r, c]]) => o === wallSlot.orientation && r === wallSlot.position[0] && c === wallSlot.position[1]
+            );
+            if (isLegal) {
+                submitMove('/api/wall', { orientation: wallSlot.orientation, position: wallSlot.position });
+            }
         }
     });
 

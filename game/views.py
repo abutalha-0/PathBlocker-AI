@@ -9,6 +9,7 @@ from game.engine import (
     apply_move,
     deserialize_state,
     get_legal_pawn_targets,
+    get_legal_wall_placements,
     serialize_state,
 )
 
@@ -26,6 +27,19 @@ def _save_state(request, state):
     request.session[SESSION_KEY] = serialize_state(state)
 
 
+def _apply_and_respond(request, state, move):
+    try:
+        winner = apply_move(state, move)
+    except ValueError as exc:
+        return JsonResponse({'error': str(exc)}, status=400)
+
+    _save_state(request, state)
+    return JsonResponse({
+        'state': serialize_state(state),
+        'winner': state.players.index(winner) if winner else None,
+    })
+
+
 def index(request):
     state = _load_state(request)
     _save_state(request, state)
@@ -35,8 +49,13 @@ def index(request):
 @require_GET
 def legal_moves(request):
     state = _load_state(request)
-    targets = get_legal_pawn_targets(state, state.current_player)
-    return JsonResponse({'targets': [list(t) for t in targets]})
+    player = state.current_player
+    targets = get_legal_pawn_targets(state, player)
+    walls = get_legal_wall_placements(state, player)
+    return JsonResponse({
+        'targets': [list(t) for t in targets],
+        'walls': [[orientation, list(position)] for orientation, position in walls],
+    })
 
 
 @require_POST
@@ -44,14 +63,13 @@ def move_pawn(request):
     state = _load_state(request)
     payload = json.loads(request.body)
     target = tuple(payload['target'])
+    return _apply_and_respond(request, state, ('move', target))
 
-    try:
-        winner = apply_move(state, ('move', target))
-    except ValueError as exc:
-        return JsonResponse({'error': str(exc)}, status=400)
 
-    _save_state(request, state)
-    return JsonResponse({
-        'state': serialize_state(state),
-        'winner': state.players.index(winner) if winner else None,
-    })
+@require_POST
+def place_wall(request):
+    state = _load_state(request)
+    payload = json.loads(request.body)
+    orientation = payload['orientation']
+    position = tuple(payload['position'])
+    return _apply_and_respond(request, state, ('wall', orientation, position))

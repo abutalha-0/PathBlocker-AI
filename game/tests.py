@@ -2,9 +2,11 @@ from django.test import TestCase
 
 from game.engine import (
     GameState,
+    WALL_GRID_SIZE,
     apply_move,
     can_place_wall,
     get_jump_moves,
+    get_legal_wall_placements,
     get_pawn_moves,
     has_path_to_goal,
     is_winner,
@@ -138,6 +140,27 @@ class WallPlacementTests(TestCase):
         place_wall(state, 'horizontal', (4, 4), state.players[0])
         with self.assertRaises(ValueError):
             place_wall(state, 'horizontal', (4, 4), state.players[0])
+
+
+class LegalWallPlacementsTests(TestCase):
+    def test_open_board_has_all_slots_in_both_orientations(self):
+        state = GameState.new_game()
+        placements = get_legal_wall_placements(state, state.players[0])
+        self.assertEqual(len(placements), 2 * WALL_GRID_SIZE * WALL_GRID_SIZE)
+
+    def test_no_walls_left_returns_no_placements(self):
+        state = GameState.new_game()
+        state.players[0].walls_left = 0
+        self.assertEqual(get_legal_wall_placements(state, state.players[0]), [])
+
+    def test_placed_wall_removes_overlapping_slots_from_the_list(self):
+        state = GameState.new_game()
+        place_wall(state, 'horizontal', (4, 4), state.players[0])
+        placements = get_legal_wall_placements(state, state.players[0])
+        self.assertNotIn(('horizontal', (4, 4)), placements)
+        self.assertNotIn(('horizontal', (4, 3)), placements)
+        self.assertNotIn(('horizontal', (4, 5)), placements)
+        self.assertNotIn(('vertical', (4, 4)), placements)
 
 
 class WallLegalityTests(TestCase):
