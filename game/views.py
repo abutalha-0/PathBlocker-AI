@@ -34,10 +34,7 @@ def _apply_and_respond(request, state, move):
         return JsonResponse({'error': str(exc)}, status=400)
 
     _save_state(request, state)
-    return JsonResponse({
-        'state': serialize_state(state),
-        'winner': state.players.index(winner) if winner else None,
-    })
+    return JsonResponse({'state': serialize_state(state), 'winner': winner})
 
 
 def index(request):
@@ -73,3 +70,10 @@ def place_wall(request):
     orientation = payload['orientation']
     position = tuple(payload['position'])
     return _apply_and_respond(request, state, ('wall', orientation, position))
+
+
+@require_POST
+def new_game(request):
+    state = GameState.new_game()
+    _save_state(request, state)
+    return JsonResponse({'state': serialize_state(state)})

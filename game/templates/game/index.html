@@ -8,7 +8,20 @@
     <link rel="stylesheet" href="{% static 'game/css/board.css' %}">
 </head>
 <body>
-    <canvas id="board"></canvas>
+    <div id="app">
+        <div id="hud">
+            <div class="hud-player" data-player="0">Player 1 — <span id="walls-0"></span> walls</div>
+            <div id="turn-indicator"></div>
+            <div class="hud-player" data-player="1">Player 2 — <span id="walls-1"></span> walls</div>
+        </div>
+        <div id="board-wrap">
+            <canvas id="board"></canvas>
+            <div id="game-over" hidden>
+                <p id="game-over-message"></p>
+                <button id="play-again" type="button">Play Again</button>
+            </div>
+        </div>
+    </div>
     {{ state|json_script:"game-state" }}
     <form id="csrf-form">{% csrf_token %}</form>
     <script src="{% static 'game/js/board.js' %}"></script>

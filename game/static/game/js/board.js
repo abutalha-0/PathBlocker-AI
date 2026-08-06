@@ -142,6 +142,23 @@ function wallSlotFromEvent(canvas, boardSize, event) {
     return { orientation, position };
 }
 
+function updateHud(state) {
+    document.querySelectorAll('.hud-player').forEach((el) => {
+        const index = Number(el.dataset.player);
+        el.querySelector('span').textContent = state.players[index].walls_left;
+        el.classList.toggle('active', state.turn === index && state.winner === null);
+    });
+
+    const turnIndicator = document.getElementById('turn-indicator');
+    turnIndicator.textContent = state.winner === null ? `Player ${state.turn + 1}'s turn` : '';
+
+    const overlay = document.getElementById('game-over');
+    overlay.hidden = state.winner === null;
+    if (state.winner !== null) {
+        document.getElementById('game-over-message').textContent = `Player ${state.winner + 1} wins!`;
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     const canvas = document.getElementById('board');
     const csrfToken = document.querySelector('#csrf-form [name=csrfmiddlewaretoken]').value;
@@ -152,9 +169,17 @@ document.addEventListener('DOMContentLoaded', () => {
     let hoverCell = null;
     let hoverWall = null;
 
-    const redraw = () => renderBoard(canvas, state, legalTargets, hoverCell, legalWalls, hoverWall);
+    const redraw = () => {
+        renderBoard(canvas, state, legalTargets, hoverCell, legalWalls, hoverWall);
+        updateHud(state);
+    };
 
     async function fetchLegalMoves() {
+        if (state.winner !== null) {
+            legalTargets = [];
+            legalWalls = [];
+            return;
+        }
         const response = await fetch('/api/legal-moves');
         const data = await response.json();
         legalTargets = data.targets;
@@ -175,14 +200,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const data = await response.json();
         state = data.state;
+        hoverCell = null;
+        hoverWall = null;
         await fetchLegalMoves();
         redraw();
-        if (data.winner !== null) {
-            alert(`Player ${data.winner + 1} wins!`);
-        }
     }
 
     canvas.addEventListener('mousemove', (event) => {
+        if (state.winner !== null) {
+            return;
+        }
         hoverCell = cellFromEvent(canvas, state.board_size, event);
         hoverWall = hoverCell ? null : wallSlotFromEvent(canvas, state.board_size, event);
         redraw();
@@ -195,6 +222,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     canvas.addEventListener('click', (event) => {
+        if (state.winner !== null) {
+            return;
+        }
+
         const cell = cellFromEvent(canvas, state.board_size, event);
         if (cell) {
             const isLegal = legalTargets.some(([r, c]) => r === cell[0] && c === cell[1]);
@@ -213,6 +244,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 submitMove('/api/wall', { orientation: wallSlot.orientation, position: wallSlot.position });
             }
         }
+    });
+
+    document.getElementById('play-again').addEventListener('click', async () => {
+        const response = await fetch('/api/new-game', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken },
+        });
+        const data = await response.json();
+        state = data.state;
+        hoverCell = null;
+        hoverWall = null;
+        await fetchLegalMoves();
+        redraw();
     });
 
     redraw();

@@ -35,6 +35,7 @@ class GameState:
     turn: int = 0
     horizontal_walls: set[tuple[int, int]] = field(default_factory=set)
     vertical_walls: set[tuple[int, int]] = field(default_factory=set)
+    winner: int | None = None
 
     @classmethod
     def new_game(cls):
@@ -201,7 +202,11 @@ def is_winner(player):
 
 
 def apply_move(state, move):
-    player = state.current_player
+    if state.winner is not None:
+        raise ValueError('game is already over')
+
+    player_index = state.turn
+    player = state.players[player_index]
     kind = move[0]
 
     if kind == 'move':
@@ -215,15 +220,18 @@ def apply_move(state, move):
     else:
         raise ValueError(f'unknown move type: {kind}')
 
-    winner = player if is_winner(player) else None
+    if is_winner(player):
+        state.winner = player_index
+
     state.turn = 1 - state.turn
-    return winner
+    return state.winner
 
 
 def serialize_state(state):
     return {
         'board_size': BOARD_SIZE,
         'turn': state.turn,
+        'winner': state.winner,
         'players': [
             {
                 'position': list(p.position),
@@ -251,4 +259,5 @@ def deserialize_state(data):
         turn=data['turn'],
         horizontal_walls={tuple(w) for w in data['horizontal_walls']},
         vertical_walls={tuple(w) for w in data['vertical_walls']},
+        winner=data.get('winner'),
     )

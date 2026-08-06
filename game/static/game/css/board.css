@@ -6,9 +6,79 @@ body {
     min-height: 100vh;
     background: #14141f;
     font-family: sans-serif;
+    color: #e8e8f0;
+}
+
+#app {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+#hud {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    font-size: 14px;
+}
+
+.hud-player[data-player="0"] {
+    color: #4fd8ff;
+}
+
+.hud-player[data-player="1"] {
+    color: #ff6b6b;
+}
+
+.hud-player.active {
+    font-weight: bold;
+}
+
+#turn-indicator {
+    color: #e0c341;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+#board-wrap {
+    position: relative;
 }
 
 #board {
     background: #1e1e2e;
     border-radius: 6px;
+    display: block;
+}
+
+#game-over {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    background: rgba(10, 10, 16, 0.85);
+    border-radius: 6px;
+}
+
+#game-over[hidden] {
+    display: none;
+}
+
+#game-over-message {
+    font-size: 22px;
+    margin: 0;
+}
+
+#play-again {
+    padding: 8px 20px;
+    font-size: 14px;
+    background: #e0c341;
+    color: #14141f;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
 }

@@ -5,12 +5,14 @@ from game.engine import (
     WALL_GRID_SIZE,
     apply_move,
     can_place_wall,
+    deserialize_state,
     get_jump_moves,
     get_legal_wall_placements,
     get_pawn_moves,
     has_path_to_goal,
     is_winner,
     place_wall,
+    serialize_state,
 )
 
 
@@ -23,8 +25,33 @@ class GameStateTests(TestCase):
         self.assertEqual(state.players[1].goal_row, 0)
         self.assertTrue(all(p.walls_left == 10 for p in state.players))
         self.assertEqual(state.turn, 0)
+        self.assertIsNone(state.winner)
         self.assertIs(state.current_player, state.players[0])
         self.assertIs(state.opponent, state.players[1])
+
+
+class SerializationTests(TestCase):
+    def test_round_trip_preserves_state(self):
+        state = GameState.new_game()
+        place_wall(state, 'horizontal', (4, 4), state.players[0])
+        state.turn = 1
+        state.winner = None
+
+        restored = deserialize_state(serialize_state(state))
+
+        self.assertEqual(restored.turn, state.turn)
+        self.assertEqual(restored.winner, state.winner)
+        self.assertEqual(restored.horizontal_walls, state.horizontal_walls)
+        self.assertEqual(
+            [(p.position, p.goal_row, p.walls_left) for p in restored.players],
+            [(p.position, p.goal_row, p.walls_left) for p in state.players],
+        )
+
+    def test_round_trip_preserves_winner(self):
+        state = GameState.new_game()
+        state.winner = 1
+        restored = deserialize_state(serialize_state(state))
+        self.assertEqual(restored.winner, 1)
 
 
 class PawnMovementTests(TestCase):
@@ -231,8 +258,17 @@ class ApplyMoveTests(TestCase):
         state.players[0].position = (7, 4)
         state.players[1].position = (8, 8)
         winner = apply_move(state, ('move', (8, 4)))
-        self.assertIs(winner, state.players[0])
+        self.assertEqual(winner, 0)
+        self.assertEqual(state.winner, 0)
         self.assertTrue(is_winner(state.players[0]))
+
+    def test_no_moves_allowed_after_game_is_won(self):
+        state = GameState.new_game()
+        state.players[0].position = (7, 4)
+        state.players[1].position = (8, 8)
+        apply_move(state, ('move', (8, 4)))
+        with self.assertRaises(ValueError):
+            apply_move(state, ('move', (7, 8)))
 
     def test_turn_alternates_across_moves(self):
         state = GameState.new_game()
