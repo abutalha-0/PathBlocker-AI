@@ -13,6 +13,7 @@ from game.engine import (
     is_winner,
     place_wall,
     serialize_state,
+    shortest_path_length,
 )
 
 
@@ -223,6 +224,32 @@ class WallLegalityTests(TestCase):
         place_wall(state, 'horizontal', (4, 4), state.players[0])
         place_wall(state, 'horizontal', (4, 6), state.players[0])
         self.assertTrue(has_path_to_goal(state, state.players[0]))
+
+
+class ShortestPathTests(TestCase):
+    def test_distance_on_open_board_is_straight_line(self):
+        state = GameState.new_game()
+        self.assertEqual(shortest_path_length(state, state.players[0]), 8)
+        self.assertEqual(shortest_path_length(state, state.players[1]), 8)
+
+    def test_zero_distance_when_already_on_goal_row(self):
+        state = GameState.new_game()
+        state.players[0].position = (8, 0)
+        self.assertEqual(shortest_path_length(state, state.players[0]), 0)
+
+    def test_wall_detour_increases_distance(self):
+        state = GameState.new_game()
+        place_wall(state, 'horizontal', (4, 2), state.players[0])
+        place_wall(state, 'horizontal', (4, 4), state.players[0])
+        place_wall(state, 'horizontal', (4, 6), state.players[0])
+        self.assertGreater(shortest_path_length(state, state.players[0]), 8)
+
+    def test_unreachable_goal_returns_none(self):
+        state = GameState.new_game()
+        state.players[0].position = (0, 0)
+        state.horizontal_walls.add((0, 0))
+        state.vertical_walls.add((0, 1))
+        self.assertIsNone(shortest_path_length(state, state.players[0]))
 
 
 class ApplyMoveTests(TestCase):

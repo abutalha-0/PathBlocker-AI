@@ -116,15 +116,15 @@ def get_jump_moves(state, player=None):
     return landings
 
 
-def has_path_to_goal(state, player):
+def shortest_path_length(state, player):
     start = player.position
     if start[0] == player.goal_row:
-        return True
+        return 0
 
     visited = {start}
-    queue = deque([start])
+    queue = deque([(start, 0)])
     while queue:
-        row, col = queue.popleft()
+        (row, col), distance = queue.popleft()
         for direction, (dr, dc) in DIRECTIONS.items():
             neighbor = (row + dr, col + dc)
             if neighbor in visited or not in_bounds(neighbor):
@@ -132,10 +132,14 @@ def has_path_to_goal(state, player):
             if is_wall_blocking(state, (row, col), direction):
                 continue
             if neighbor[0] == player.goal_row:
-                return True
+                return distance + 1
             visited.add(neighbor)
-            queue.append(neighbor)
-    return False
+            queue.append((neighbor, distance + 1))
+    return None
+
+
+def has_path_to_goal(state, player):
+    return shortest_path_length(state, player) is not None
 
 
 def can_place_wall(state, orientation, position, player=None):
