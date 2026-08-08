@@ -201,6 +201,16 @@ def get_legal_pawn_targets(state, player=None):
     return set(get_pawn_moves(state, player)) | set(get_jump_moves(state, player))
 
 
+def get_legal_moves(state, player=None):
+    player = player or state.current_player
+    moves = [('move', target) for target in get_legal_pawn_targets(state, player)]
+    moves += [
+        ('wall', orientation, position)
+        for orientation, position in get_legal_wall_placements(state, player)
+    ]
+    return moves
+
+
 def is_winner(player):
     return player.position[0] == player.goal_row
 

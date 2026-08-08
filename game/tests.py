@@ -7,6 +7,7 @@ from game.engine import (
     can_place_wall,
     deserialize_state,
     get_jump_moves,
+    get_legal_moves,
     get_legal_wall_placements,
     get_pawn_moves,
     has_path_to_goal,
@@ -250,6 +251,28 @@ class ShortestPathTests(TestCase):
         state.horizontal_walls.add((0, 0))
         state.vertical_walls.add((0, 1))
         self.assertIsNone(shortest_path_length(state, state.players[0]))
+
+
+class GetLegalMovesTests(TestCase):
+    def test_open_board_combines_pawn_and_wall_moves(self):
+        state = GameState.new_game()
+        moves = get_legal_moves(state, state.players[0])
+        pawn_moves = [m for m in moves if m[0] == 'move']
+        wall_moves = [m for m in moves if m[0] == 'wall']
+        self.assertCountEqual(pawn_moves, [('move', (0, 3)), ('move', (0, 5)), ('move', (1, 4))])
+        self.assertEqual(len(wall_moves), 2 * WALL_GRID_SIZE * WALL_GRID_SIZE)
+
+    def test_no_walls_left_returns_only_pawn_moves(self):
+        state = GameState.new_game()
+        state.players[0].walls_left = 0
+        moves = get_legal_moves(state, state.players[0])
+        self.assertTrue(all(m[0] == 'move' for m in moves))
+
+    def test_every_move_is_accepted_by_apply_move(self):
+        state = GameState.new_game()
+        for move in get_legal_moves(state, state.players[0]):
+            trial = GameState.new_game()
+            apply_move(trial, move)
 
 
 class ApplyMoveTests(TestCase):
