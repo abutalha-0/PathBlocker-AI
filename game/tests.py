@@ -6,12 +6,14 @@ from game.engine import (
     apply_move,
     can_place_wall,
     deserialize_state,
+    evaluate,
     get_jump_moves,
     get_legal_moves,
     get_legal_wall_placements,
     get_pawn_moves,
     has_path_to_goal,
     is_winner,
+    minimax,
     place_wall,
     serialize_state,
     shortest_path_length,
@@ -333,3 +335,48 @@ class ApplyMoveTests(TestCase):
         state = GameState.new_game()
         with self.assertRaises(ValueError):
             apply_move(state, ('teleport', (0, 0)))
+
+
+class EvaluateTests(TestCase):
+    def test_symmetric_start_is_neutral(self):
+        state = GameState.new_game()
+        self.assertEqual(evaluate(state, 0), 0)
+        self.assertEqual(evaluate(state, 1), 0)
+
+    def test_closer_to_goal_scores_higher(self):
+        state = GameState.new_game()
+        state.players[0].position = (4, 4)
+        self.assertEqual(evaluate(state, 0), 4)
+        self.assertEqual(evaluate(state, 1), -4)
+
+    def test_win_dominates_the_path_distance_heuristic(self):
+        state = GameState.new_game()
+        state.winner = 0
+        state.horizontal_walls.add((0, 7))
+        self.assertGreater(evaluate(state, 0), 8)
+        self.assertEqual(evaluate(state, 1), -evaluate(state, 0))
+
+
+class MinimaxTests(TestCase):
+    def test_picks_the_immediate_winning_move(self):
+        state = GameState.new_game()
+        state.players[0].position = (7, 4)
+        state.players[1].position = (8, 8)
+        score, move = minimax(state, depth=1, maximizing_index=0)
+        self.assertEqual(move, ('move', (8, 4)))
+
+    def test_returns_a_legal_move_at_deeper_depth(self):
+        state = GameState.new_game()
+        state.players[0].walls_left = 0
+        state.players[1].walls_left = 0
+        score, move = minimax(state, depth=3, maximizing_index=0)
+        self.assertIn(move, get_legal_moves(state, state.players[0]))
+
+    def test_does_not_mutate_the_original_state(self):
+        state = GameState.new_game()
+        state.players[0].walls_left = 0
+        state.players[1].walls_left = 0
+        original_position = state.players[0].position
+        minimax(state, depth=2, maximizing_index=0)
+        self.assertEqual(state.players[0].position, original_position)
+        self.assertEqual(state.turn, 0)

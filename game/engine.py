@@ -1,3 +1,4 @@
+import copy
 from collections import deque
 from dataclasses import dataclass, field
 
@@ -239,6 +240,39 @@ def apply_move(state, move):
 
     state.turn = 1 - state.turn
     return state.winner
+
+
+WIN_SCORE = 1000
+
+
+def evaluate(state, player_index):
+    if state.winner is not None:
+        return WIN_SCORE if state.winner == player_index else -WIN_SCORE
+
+    player = state.players[player_index]
+    opponent = state.players[1 - player_index]
+    return shortest_path_length(state, opponent) - shortest_path_length(state, player)
+
+
+def minimax(state, depth, maximizing_index):
+    if depth == 0 or state.winner is not None:
+        return evaluate(state, maximizing_index), None
+
+    is_maximizing = state.turn == maximizing_index
+    best_move = None
+    best_score = float('-inf') if is_maximizing else float('inf')
+
+    for move in get_legal_moves(state):
+        child = copy.deepcopy(state)
+        apply_move(child, move)
+        score, _ = minimax(child, depth - 1, maximizing_index)
+
+        if is_maximizing and score > best_score:
+            best_score, best_move = score, move
+        elif not is_maximizing and score < best_score:
+            best_score, best_move = score, move
+
+    return best_score, best_move
 
 
 def serialize_state(state):
