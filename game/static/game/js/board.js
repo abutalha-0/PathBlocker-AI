@@ -159,6 +159,8 @@ function updateHud(state) {
     }
 }
 
+const HUMAN_PLAYER = 0;
+
 document.addEventListener('DOMContentLoaded', () => {
     const canvas = document.getElementById('board');
     const csrfToken = document.querySelector('#csrf-form [name=csrfmiddlewaretoken]').value;
@@ -175,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     async function fetchLegalMoves() {
-        if (state.winner !== null) {
+        if (state.winner !== null || state.turn !== HUMAN_PLAYER) {
             legalTargets = [];
             legalWalls = [];
             return;
@@ -184,6 +186,31 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await response.json();
         legalTargets = data.targets;
         legalWalls = data.walls;
+    }
+
+    async function requestAiMove() {
+        document.getElementById('turn-indicator').textContent = 'AI is thinking...';
+        const response = await fetch('/api/ai-move', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken },
+        });
+        if (!response.ok) {
+            return;
+        }
+        const data = await response.json();
+        state = data.state;
+        hoverCell = null;
+        hoverWall = null;
+        await fetchLegalMoves();
+        redraw();
+    }
+
+    async function afterStateChange() {
+        await fetchLegalMoves();
+        redraw();
+        if (state.winner === null && state.turn !== HUMAN_PLAYER) {
+            await requestAiMove();
+        }
     }
 
     async function submitMove(url, body) {
@@ -202,12 +229,11 @@ document.addEventListener('DOMContentLoaded', () => {
         state = data.state;
         hoverCell = null;
         hoverWall = null;
-        await fetchLegalMoves();
-        redraw();
+        await afterStateChange();
     }
 
     canvas.addEventListener('mousemove', (event) => {
-        if (state.winner !== null) {
+        if (state.winner !== null || state.turn !== HUMAN_PLAYER) {
             return;
         }
         hoverCell = cellFromEvent(canvas, state.board_size, event);
@@ -222,7 +248,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     canvas.addEventListener('click', (event) => {
-        if (state.winner !== null) {
+        if (state.winner !== null || state.turn !== HUMAN_PLAYER) {
             return;
         }
 
@@ -255,10 +281,9 @@ document.addEventListener('DOMContentLoaded', () => {
         state = data.state;
         hoverCell = null;
         hoverWall = null;
-        await fetchLegalMoves();
-        redraw();
+        await afterStateChange();
     });
 
     redraw();
-    fetchLegalMoves().then(redraw);
+    afterStateChange();
 });

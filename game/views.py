@@ -10,10 +10,15 @@ from game.engine import (
     deserialize_state,
     get_legal_pawn_targets,
     get_legal_wall_placements,
+    minimax,
     serialize_state,
 )
 
 SESSION_KEY = 'game_state'
+
+# Plain minimax with no pruning is too slow to search deeper without
+# a noticeable delay; this will increase once alpha-beta pruning lands.
+AI_SEARCH_DEPTH = 1
 
 
 def _load_state(request):
@@ -70,6 +75,15 @@ def place_wall(request):
     orientation = payload['orientation']
     position = tuple(payload['position'])
     return _apply_and_respond(request, state, ('wall', orientation, position))
+
+
+@require_POST
+def ai_move(request):
+    state = _load_state(request)
+    _, move = minimax(state, depth=AI_SEARCH_DEPTH, maximizing_index=state.turn)
+    if move is None:
+        return JsonResponse({'error': 'no legal moves available'}, status=400)
+    return _apply_and_respond(request, state, move)
 
 
 @require_POST
