@@ -275,6 +275,34 @@ def minimax(state, depth, maximizing_index):
     return best_score, best_move
 
 
+def minimax_alpha_beta(state, depth, maximizing_index, alpha=float('-inf'), beta=float('inf')):
+    if depth == 0 or state.winner is not None:
+        return evaluate(state, maximizing_index), None
+
+    is_maximizing = state.turn == maximizing_index
+    best_move = None
+    best_score = float('-inf') if is_maximizing else float('inf')
+
+    for move in get_legal_moves(state):
+        child = copy.deepcopy(state)
+        apply_move(child, move)
+        score, _ = minimax_alpha_beta(child, depth - 1, maximizing_index, alpha, beta)
+
+        if is_maximizing:
+            if score > best_score:
+                best_score, best_move = score, move
+            alpha = max(alpha, best_score)
+        else:
+            if score < best_score:
+                best_score, best_move = score, move
+            beta = min(beta, best_score)
+
+        if beta <= alpha:
+            break
+
+    return best_score, best_move
+
+
 def serialize_state(state):
     return {
         'board_size': BOARD_SIZE,

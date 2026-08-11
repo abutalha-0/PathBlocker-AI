@@ -14,6 +14,7 @@ from game.engine import (
     has_path_to_goal,
     is_winner,
     minimax,
+    minimax_alpha_beta,
     place_wall,
     serialize_state,
     shortest_path_length,
@@ -378,5 +379,41 @@ class MinimaxTests(TestCase):
         state.players[1].walls_left = 0
         original_position = state.players[0].position
         minimax(state, depth=2, maximizing_index=0)
+        self.assertEqual(state.players[0].position, original_position)
+        self.assertEqual(state.turn, 0)
+
+
+class AlphaBetaTests(TestCase):
+    def test_matches_plain_minimax_on_open_board(self):
+        state = GameState.new_game()
+        state.players[0].walls_left = 0
+        state.players[1].walls_left = 0
+        plain = minimax(state, depth=3, maximizing_index=0)
+        pruned = minimax_alpha_beta(state, depth=3, maximizing_index=0)
+        self.assertEqual(plain, pruned)
+
+    def test_matches_plain_minimax_near_a_win(self):
+        state = GameState.new_game()
+        state.players[0].position = (7, 4)
+        state.players[1].position = (8, 8)
+        plain = minimax(state, depth=1, maximizing_index=0)
+        pruned = minimax_alpha_beta(state, depth=1, maximizing_index=0)
+        self.assertEqual(plain, pruned)
+
+    def test_matches_plain_minimax_with_walls_in_play(self):
+        state = GameState.new_game()
+        place_wall(state, 'horizontal', (4, 2), state.players[0])
+        state.players[0].walls_left = 0
+        state.players[1].walls_left = 0
+        plain = minimax(state, depth=3, maximizing_index=1)
+        pruned = minimax_alpha_beta(state, depth=3, maximizing_index=1)
+        self.assertEqual(plain, pruned)
+
+    def test_does_not_mutate_the_original_state(self):
+        state = GameState.new_game()
+        state.players[0].walls_left = 0
+        state.players[1].walls_left = 0
+        original_position = state.players[0].position
+        minimax_alpha_beta(state, depth=2, maximizing_index=0)
         self.assertEqual(state.players[0].position, original_position)
         self.assertEqual(state.turn, 0)
