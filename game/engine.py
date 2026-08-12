@@ -117,26 +117,35 @@ def get_jump_moves(state, player=None):
     return landings
 
 
-def shortest_path_length(state, player):
+def shortest_path_cells(state, player):
     start = player.position
     if start[0] == player.goal_row:
-        return 0
+        return [start]
 
-    visited = {start}
-    queue = deque([(start, 0)])
+    parents = {start: None}
+    queue = deque([start])
     while queue:
-        (row, col), distance = queue.popleft()
+        row, col = queue.popleft()
         for direction, (dr, dc) in DIRECTIONS.items():
             neighbor = (row + dr, col + dc)
-            if neighbor in visited or not in_bounds(neighbor):
+            if neighbor in parents or not in_bounds(neighbor):
                 continue
             if is_wall_blocking(state, (row, col), direction):
                 continue
+            parents[neighbor] = (row, col)
             if neighbor[0] == player.goal_row:
-                return distance + 1
-            visited.add(neighbor)
-            queue.append((neighbor, distance + 1))
+                path = [neighbor]
+                while parents[path[-1]] is not None:
+                    path.append(parents[path[-1]])
+                path.reverse()
+                return path
+            queue.append(neighbor)
     return None
+
+
+def shortest_path_length(state, player):
+    path = shortest_path_cells(state, player)
+    return None if path is None else len(path) - 1
 
 
 def has_path_to_goal(state, player):
@@ -202,14 +211,52 @@ def get_legal_pawn_targets(state, player=None):
     return set(get_pawn_moves(state, player)) | set(get_jump_moves(state, player))
 
 
+def _cells_touching_wall(row, col):
+    return {(row, col), (row, col + 1), (row + 1, col), (row + 1, col + 1)}
+
+
+def get_near_path_wall_candidates(state, player=None):
+    """Wall placements touching either player's current shortest path.
+
+    A full search of all wall slots dominates the branching factor and
+    makes deep search too slow; walls far from both paths are almost
+    never worth playing, so search only considers these candidates.
+    """
+    player = player or state.current_player
+    if player.walls_left <= 0:
+        return []
+
+    opponent = next(p for p in state.players if p is not player)
+    path_cells = set(shortest_path_cells(state, player) or [])
+    path_cells |= set(shortest_path_cells(state, opponent) or [])
+
+    candidates = []
+    for orientation in ('horizontal', 'vertical'):
+        for row in range(WALL_GRID_SIZE):
+            for col in range(WALL_GRID_SIZE):
+                if not _cells_touching_wall(row, col) & path_cells:
+                    continue
+                if can_place_wall(state, orientation, (row, col), player):
+                    candidates.append((orientation, (row, col)))
+    return candidates
+
+
 def get_legal_moves(state, player=None):
     player = player or state.current_player
-    moves = [('move', target) for target in get_legal_pawn_targets(state, player)]
-    moves += [
-        ('wall', orientation, position)
-        for orientation, position in get_legal_wall_placements(state, player)
-    ]
-    return moves
+    opponent = next(p for p in state.players if p is not player)
+
+    pawn_moves = sorted(
+        (('move', target) for target in get_legal_pawn_targets(state, player)),
+        key=lambda move: abs(move[1][0] - player.goal_row),
+    )
+    wall_moves = sorted(
+        (
+            ('wall', orientation, position)
+            for orientation, position in get_near_path_wall_candidates(state, player)
+        ),
+        key=lambda move: abs(move[2][0] - opponent.position[0]) + abs(move[2][1] - opponent.position[1]),
+    )
+    return pawn_moves + wall_moves
 
 
 def is_winner(player):

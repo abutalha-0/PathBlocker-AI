@@ -16,10 +16,9 @@ from game.engine import (
 
 SESSION_KEY = 'game_state'
 
-# Without move ordering, alpha-beta pruning alone doesn't cut enough
-# branches to search deeper without a noticeable delay; this will
-# increase once move ordering lands.
-AI_SEARCH_DEPTH = 1
+# Move ordering plus restricted wall candidates keep depth 2 under
+# ~0.2s; difficulty tiers with their own depth/time budget come later.
+AI_SEARCH_DEPTH = 2
 
 
 def _load_state(request):

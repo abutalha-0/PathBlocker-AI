@@ -10,6 +10,7 @@ from game.engine import (
     get_jump_moves,
     get_legal_moves,
     get_legal_wall_placements,
+    get_near_path_wall_candidates,
     get_pawn_moves,
     has_path_to_goal,
     is_winner,
@@ -263,7 +264,21 @@ class GetLegalMovesTests(TestCase):
         pawn_moves = [m for m in moves if m[0] == 'move']
         wall_moves = [m for m in moves if m[0] == 'wall']
         self.assertCountEqual(pawn_moves, [('move', (0, 3)), ('move', (0, 5)), ('move', (1, 4))])
-        self.assertEqual(len(wall_moves), 2 * WALL_GRID_SIZE * WALL_GRID_SIZE)
+        self.assertTrue(wall_moves)
+        self.assertLess(len(wall_moves), 2 * WALL_GRID_SIZE * WALL_GRID_SIZE)
+
+    def test_wall_moves_are_a_subset_of_all_legal_walls(self):
+        state = GameState.new_game()
+        moves = get_legal_moves(state, state.players[0])
+        wall_moves = {(m[1], m[2]) for m in moves if m[0] == 'wall'}
+        self.assertTrue(wall_moves <= set(get_legal_wall_placements(state, state.players[0])))
+
+    def test_pawn_moves_are_ordered_toward_the_goal_row(self):
+        state = GameState.new_game()
+        moves = get_legal_moves(state, state.players[0])
+        pawn_moves = [m for m in moves if m[0] == 'move']
+        distances = [abs(target[0] - state.players[0].goal_row) for _, target in pawn_moves]
+        self.assertEqual(distances, sorted(distances))
 
     def test_no_walls_left_returns_only_pawn_moves(self):
         state = GameState.new_game()
@@ -276,6 +291,30 @@ class GetLegalMovesTests(TestCase):
         for move in get_legal_moves(state, state.players[0]):
             trial = GameState.new_game()
             apply_move(trial, move)
+
+
+class NearPathWallCandidatesTests(TestCase):
+    def test_candidates_are_subset_of_all_legal_walls(self):
+        state = GameState.new_game()
+        near_path = set(get_near_path_wall_candidates(state, state.players[0]))
+        exhaustive = set(get_legal_wall_placements(state, state.players[0]))
+        self.assertTrue(near_path <= exhaustive)
+        self.assertLess(len(near_path), len(exhaustive))
+
+    def test_wall_directly_on_a_straight_path_is_included(self):
+        state = GameState.new_game()
+        candidates = get_near_path_wall_candidates(state, state.players[0])
+        self.assertIn(('horizontal', (4, 4)), candidates)
+
+    def test_wall_far_from_both_paths_is_excluded(self):
+        state = GameState.new_game()
+        candidates = get_near_path_wall_candidates(state, state.players[0])
+        self.assertNotIn(('horizontal', (4, 0)), candidates)
+
+    def test_no_walls_left_returns_no_candidates(self):
+        state = GameState.new_game()
+        state.players[0].walls_left = 0
+        self.assertEqual(get_near_path_wall_candidates(state, state.players[0]), [])
 
 
 class ApplyMoveTests(TestCase):
