@@ -5,20 +5,18 @@ from django.shortcuts import render
 from django.views.decorators.http import require_GET, require_POST
 
 from game.engine import (
+    DIFFICULTY_LEVELS,
     GameState,
     apply_move,
+    choose_ai_move,
     deserialize_state,
     get_legal_pawn_targets,
     get_legal_wall_placements,
-    minimax_alpha_beta,
     serialize_state,
 )
 
 SESSION_KEY = 'game_state'
-
-# Move ordering plus restricted wall candidates keep depth 2 under
-# ~0.2s; difficulty tiers with their own depth/time budget come later.
-AI_SEARCH_DEPTH = 2
+DEFAULT_DIFFICULTY = 'medium'
 
 
 def _load_state(request):
@@ -80,7 +78,13 @@ def place_wall(request):
 @require_POST
 def ai_move(request):
     state = _load_state(request)
-    _, move = minimax_alpha_beta(state, depth=AI_SEARCH_DEPTH, maximizing_index=state.turn)
+    payload = json.loads(request.body) if request.body else {}
+    difficulty = payload.get('difficulty', DEFAULT_DIFFICULTY)
+
+    if difficulty not in DIFFICULTY_LEVELS:
+        return JsonResponse({'error': f'unknown difficulty: {difficulty}'}, status=400)
+
+    move = choose_ai_move(state, state.turn, difficulty)
     if move is None:
         return JsonResponse({'error': 'no legal moves available'}, status=400)
     return _apply_and_respond(request, state, move)

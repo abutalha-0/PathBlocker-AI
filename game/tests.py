@@ -5,6 +5,9 @@ from game.engine import (
     WALL_GRID_SIZE,
     apply_move,
     can_place_wall,
+    choose_ai_move,
+    choose_greedy_move,
+    choose_minimax_move,
     deserialize_state,
     evaluate,
     get_jump_moves,
@@ -456,3 +459,59 @@ class AlphaBetaTests(TestCase):
         minimax_alpha_beta(state, depth=2, maximizing_index=0)
         self.assertEqual(state.players[0].position, original_position)
         self.assertEqual(state.turn, 0)
+
+
+class ChooseGreedyMoveTests(TestCase):
+    def test_picks_the_move_that_advances_furthest(self):
+        state = GameState.new_game()
+        move = choose_greedy_move(state, 0)
+        self.assertEqual(move, ('move', (1, 4)))
+
+    def test_never_places_a_wall_even_when_one_would_help_more(self):
+        state = GameState.new_game()
+        state.players[0].position = (7, 4)
+        state.players[1].position = (8, 8)
+        move = choose_greedy_move(state, 0)
+        self.assertEqual(move, ('move', (8, 4)))
+
+    def test_avoids_a_wall_blocking_the_direct_path(self):
+        state = GameState.new_game()
+        place_wall(state, 'horizontal', (0, 3), state.players[0])
+        move = choose_greedy_move(state, 0)
+        self.assertIn(move, [('move', (0, 3)), ('move', (0, 5))])
+
+
+class ChooseMinimaxMoveTests(TestCase):
+    def test_returns_a_legal_move_within_budget(self):
+        state = GameState.new_game()
+        move = choose_minimax_move(state, 0, max_depth=2, time_budget=1.0)
+        self.assertIn(move, get_legal_moves(state, state.players[0]))
+
+    def test_picks_the_immediate_winning_move(self):
+        state = GameState.new_game()
+        state.players[0].position = (7, 4)
+        state.players[1].position = (8, 8)
+        move = choose_minimax_move(state, 0, max_depth=2, time_budget=1.0)
+        self.assertEqual(move, ('move', (8, 4)))
+
+    def test_respects_a_tiny_time_budget_by_falling_back_to_depth_one(self):
+        state = GameState.new_game()
+        move = choose_minimax_move(state, 0, max_depth=4, time_budget=0.0)
+        self.assertIsNone(move)
+
+
+class ChooseAiMoveTests(TestCase):
+    def test_easy_uses_greedy_strategy(self):
+        state = GameState.new_game()
+        self.assertEqual(choose_ai_move(state, 0, 'easy'), choose_greedy_move(state, 0))
+
+    def test_medium_and_hard_return_legal_moves(self):
+        state = GameState.new_game()
+        for difficulty in ('medium', 'hard'):
+            move = choose_ai_move(state, 0, difficulty)
+            self.assertIn(move, get_legal_moves(state, state.players[0]))
+
+    def test_unknown_difficulty_raises(self):
+        state = GameState.new_game()
+        with self.assertRaises(KeyError):
+            choose_ai_move(state, 0, 'expert')

@@ -1,4 +1,5 @@
 import copy
+import time
 from collections import deque
 from dataclasses import dataclass, field
 
@@ -348,6 +349,60 @@ def minimax_alpha_beta(state, depth, maximizing_index, alpha=float('-inf'), beta
             break
 
     return best_score, best_move
+
+
+def choose_greedy_move(state, player_index):
+    """Pick whichever legal pawn move most reduces the player's own
+    path distance. No lookahead and never places a wall — this is the
+    Easy tier, deliberately weaker than the minimax-based tiers.
+    """
+    player = state.players[player_index]
+    best_move = None
+    best_distance = None
+
+    for target in get_legal_pawn_targets(state, player):
+        child = copy.deepcopy(state)
+        child.players[player_index].position = target
+        distance = shortest_path_length(child, child.players[player_index])
+        if best_distance is None or (distance is not None and distance < best_distance):
+            best_distance = distance
+            best_move = ('move', target)
+
+    return best_move
+
+
+def choose_minimax_move(state, maximizing_index, max_depth, time_budget):
+    """Iterative deepening: search depth 1, 2, ... up to max_depth,
+    keeping the best move found so far, stopping once time_budget is
+    spent so a response is always returned promptly.
+    """
+    start = time.monotonic()
+    best_move = None
+
+    for depth in range(1, max_depth + 1):
+        if time.monotonic() - start >= time_budget:
+            break
+        _, move = minimax_alpha_beta(state, depth, maximizing_index)
+        if move is not None:
+            best_move = move
+        if time.monotonic() - start >= time_budget:
+            break
+
+    return best_move
+
+
+DIFFICULTY_LEVELS = {
+    'easy': {'strategy': 'greedy'},
+    'medium': {'strategy': 'minimax', 'max_depth': 2, 'time_budget': 1.0},
+    'hard': {'strategy': 'minimax', 'max_depth': 3, 'time_budget': 2.0},
+}
+
+
+def choose_ai_move(state, player_index, difficulty='medium'):
+    settings = DIFFICULTY_LEVELS[difficulty]
+    if settings['strategy'] == 'greedy':
+        return choose_greedy_move(state, player_index)
+    return choose_minimax_move(state, player_index, settings['max_depth'], settings['time_budget'])
 
 
 def serialize_state(state):
