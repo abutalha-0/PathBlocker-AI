@@ -164,12 +164,18 @@ const HUMAN_PLAYER = 0;
 document.addEventListener('DOMContentLoaded', () => {
     const canvas = document.getElementById('board');
     const csrfToken = document.querySelector('#csrf-form [name=csrfmiddlewaretoken]').value;
+    const menu = document.getElementById('menu');
+    const app = document.getElementById('app');
+    const difficultyRow = document.getElementById('difficulty-row');
 
     let state = JSON.parse(document.getElementById('game-state').textContent);
     let legalTargets = [];
     let legalWalls = [];
     let hoverCell = null;
     let hoverWall = null;
+    let settings = { mode: 'ai', difficulty: 'medium' };
+
+    const isHumanTurn = () => settings.mode === '2p' || state.turn === HUMAN_PLAYER;
 
     const redraw = () => {
         renderBoard(canvas, state, legalTargets, hoverCell, legalWalls, hoverWall);
@@ -177,7 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     async function fetchLegalMoves() {
-        if (state.winner !== null || state.turn !== HUMAN_PLAYER) {
+        if (state.winner !== null || !isHumanTurn()) {
             legalTargets = [];
             legalWalls = [];
             return;
@@ -192,7 +198,11 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('turn-indicator').textContent = 'AI is thinking...';
         const response = await fetch('/api/ai-move', {
             method: 'POST',
-            headers: { 'X-CSRFToken': csrfToken },
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            },
+            body: JSON.stringify({ difficulty: settings.difficulty }),
         });
         if (!response.ok) {
             return;
@@ -208,7 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function afterStateChange() {
         await fetchLegalMoves();
         redraw();
-        if (state.winner === null && state.turn !== HUMAN_PLAYER) {
+        if (state.winner === null && settings.mode === 'ai' && state.turn !== HUMAN_PLAYER) {
             await requestAiMove();
         }
     }
@@ -233,7 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     canvas.addEventListener('mousemove', (event) => {
-        if (state.winner !== null || state.turn !== HUMAN_PLAYER) {
+        if (state.winner !== null || !isHumanTurn()) {
             return;
         }
         hoverCell = cellFromEvent(canvas, state.board_size, event);
@@ -248,7 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     canvas.addEventListener('click', (event) => {
-        if (state.winner !== null || state.turn !== HUMAN_PLAYER) {
+        if (state.winner !== null || !isHumanTurn()) {
             return;
         }
 
@@ -284,6 +294,33 @@ document.addEventListener('DOMContentLoaded', () => {
         await afterStateChange();
     });
 
-    redraw();
-    afterStateChange();
+    document.querySelectorAll('input[name=mode]').forEach((input) => {
+        input.addEventListener('change', () => {
+            difficultyRow.hidden = document.querySelector('input[name=mode]:checked').value !== 'ai';
+        });
+    });
+
+    document.getElementById('back-to-menu').addEventListener('click', () => {
+        app.hidden = true;
+        menu.hidden = false;
+    });
+
+    document.getElementById('start-game').addEventListener('click', async () => {
+        settings.mode = document.querySelector('input[name=mode]:checked').value;
+        settings.difficulty = document.getElementById('difficulty').value;
+
+        const response = await fetch('/api/new-game', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken },
+        });
+        const data = await response.json();
+        state = data.state;
+        hoverCell = null;
+        hoverWall = null;
+
+        menu.hidden = true;
+        app.hidden = false;
+        redraw();
+        await afterStateChange();
+    });
 });

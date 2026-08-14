@@ -9,6 +9,42 @@ body {
     color: #e8e8f0;
 }
 
+/* Custom display rules below would otherwise override the browser's
+   default [hidden] behavior, since author styles beat the UA sheet. */
+[hidden] {
+    display: none !important;
+}
+
+#menu {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 24px;
+}
+
+#menu h1 {
+    margin: 0;
+    font-size: 22px;
+}
+
+.menu-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 14px;
+}
+
+#start-game {
+    padding: 8px 24px;
+    font-size: 14px;
+    background: #e0c341;
+    color: #14141f;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
 #app {
     display: flex;
     flex-direction: column;
@@ -21,6 +57,16 @@ body {
     align-items: center;
     gap: 24px;
     font-size: 14px;
+}
+
+#back-to-menu {
+    padding: 4px 10px;
+    font-size: 12px;
+    background: transparent;
+    color: #e8e8f0;
+    border: 1px solid #3a3a4d;
+    border-radius: 4px;
+    cursor: pointer;
 }
 
 .hud-player[data-player="0"] {
@@ -62,10 +108,6 @@ body {
     gap: 16px;
     background: rgba(10, 10, 16, 0.85);
     border-radius: 6px;
-}
-
-#game-over[hidden] {
-    display: none;
 }
 
 #game-over-message {

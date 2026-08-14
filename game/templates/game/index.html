@@ -8,11 +8,28 @@
     <link rel="stylesheet" href="{% static 'game/css/board.css' %}">
 </head>
 <body>
-    <div id="app">
+    <div id="menu">
+        <h1>PathBlocker AI</h1>
+        <div class="menu-row">
+            <label><input type="radio" name="mode" value="ai" checked> Player vs AI</label>
+            <label><input type="radio" name="mode" value="2p"> 2 Player</label>
+        </div>
+        <div class="menu-row" id="difficulty-row">
+            <label for="difficulty">Difficulty</label>
+            <select id="difficulty">
+                <option value="easy">Easy</option>
+                <option value="medium" selected>Medium</option>
+                <option value="hard">Hard</option>
+            </select>
+        </div>
+        <button id="start-game" type="button">Start Game</button>
+    </div>
+    <div id="app" hidden>
         <div id="hud">
             <div class="hud-player" data-player="0">Player 1 — <span id="walls-0"></span> walls</div>
             <div id="turn-indicator"></div>
             <div class="hud-player" data-player="1">Player 2 — <span id="walls-1"></span> walls</div>
+            <button id="back-to-menu" type="button">Menu</button>
         </div>
         <div id="board-wrap">
             <canvas id="board"></canvas>
