@@ -409,6 +409,11 @@ class EvaluateTests(TestCase):
         self.assertEqual(evaluate(state, 0), 4)
         self.assertEqual(evaluate(state, 1), -4)
 
+    def test_spending_walls_costs_score_even_with_equal_distance(self):
+        state = GameState.new_game()
+        state.players[0].walls_left = 7
+        self.assertLess(evaluate(state, 0), evaluate(state, 1))
+
     def test_win_dominates_the_path_distance_heuristic(self):
         state = GameState.new_game()
         state.winner = 0

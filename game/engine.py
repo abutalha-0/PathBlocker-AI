@@ -296,6 +296,11 @@ def apply_move(state, move):
 
 WIN_SCORE = 1000
 
+# Without a cost for spending walls, the search treats every wall's
+# path-distance swing as pure profit and over-uses them relative to
+# just advancing; this makes spending one a deliberate trade-off.
+WALL_CONSERVATION_WEIGHT = 3
+
 
 def evaluate(state, player_index):
     if state.winner is not None:
@@ -303,7 +308,9 @@ def evaluate(state, player_index):
 
     player = state.players[player_index]
     opponent = state.players[1 - player_index]
-    return shortest_path_length(state, opponent) - shortest_path_length(state, player)
+    distance_term = shortest_path_length(state, opponent) - shortest_path_length(state, player)
+    wall_term = player.walls_left - opponent.walls_left
+    return distance_term + WALL_CONSERVATION_WEIGHT * wall_term
 
 
 def minimax(state, depth, maximizing_index):
