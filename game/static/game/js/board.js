@@ -202,7 +202,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const csrfToken = document.querySelector('#csrf-form [name=csrfmiddlewaretoken]').value;
     const menu = document.getElementById('menu');
     const app = document.getElementById('app');
-    const difficultyRow = document.getElementById('difficulty-row');
+    const difficultySettings = document.getElementById('difficulty-settings');
+    const rulesModal = document.getElementById('rules-modal');
 
     let state = JSON.parse(document.getElementById('game-state').textContent);
     let legalTargets = [];
@@ -330,10 +331,30 @@ document.addEventListener('DOMContentLoaded', () => {
         await afterStateChange();
     });
 
-    document.querySelectorAll('input[name=mode]').forEach((input) => {
-        input.addEventListener('change', () => {
-            difficultyRow.hidden = document.querySelector('input[name=mode]:checked').value !== 'ai';
+    document.querySelectorAll('.mode-group .toggle-btn').forEach((button) => {
+        button.addEventListener('click', () => {
+            document.querySelectorAll('.mode-group .toggle-btn').forEach((b) => b.classList.remove('active'));
+            button.classList.add('active');
+
+            const isAiMode = button.dataset.mode === 'ai';
+            difficultySettings.style.opacity = isAiMode ? '1' : '0.3';
+            difficultySettings.style.pointerEvents = isAiMode ? 'auto' : 'none';
         });
+    });
+
+    document.querySelectorAll('.diff-group .toggle-btn').forEach((button) => {
+        button.addEventListener('click', () => {
+            document.querySelectorAll('.diff-group .toggle-btn').forEach((b) => b.classList.remove('active'));
+            button.classList.add('active');
+        });
+    });
+
+    document.getElementById('rules-btn').addEventListener('click', () => {
+        rulesModal.classList.add('active');
+    });
+
+    document.getElementById('close-rules-btn').addEventListener('click', () => {
+        rulesModal.classList.remove('active');
     });
 
     document.getElementById('back-to-menu').addEventListener('click', () => {
@@ -342,8 +363,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('start-game').addEventListener('click', async () => {
-        settings.mode = document.querySelector('input[name=mode]:checked').value;
-        settings.difficulty = document.getElementById('difficulty').value;
+        settings.mode = document.querySelector('.mode-group .toggle-btn.active').dataset.mode;
+        settings.difficulty = document.querySelector('.diff-group .toggle-btn.active').dataset.difficulty;
 
         const response = await fetch('/api/new-game', {
             method: 'POST',

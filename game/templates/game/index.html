@@ -9,21 +9,44 @@
 </head>
 <body>
     <div id="menu">
-        <h1>PathBlocker AI</h1>
-        <div class="menu-row">
-            <label><input type="radio" name="mode" value="ai" checked> Player vs AI</label>
-            <label><input type="radio" name="mode" value="2p"> 2 Player</label>
+        <div class="menu-title">PATHBLOCKER AI</div>
+        <div class="menu-subtitle">QUORIDOR PROTOCOL</div>
+
+        <div class="options-container">
+            <div class="option-group">
+                <div class="option-label">Game Mode</div>
+                <div class="toggle-row mode-group">
+                    <button class="toggle-btn active" type="button" data-mode="ai">Player vs AI</button>
+                    <button class="toggle-btn" type="button" data-mode="2p">2 Player</button>
+                </div>
+            </div>
+
+            <div class="option-group" id="difficulty-settings">
+                <div class="option-label">AI Difficulty</div>
+                <div class="toggle-row diff-group">
+                    <button class="toggle-btn" type="button" data-difficulty="easy">Easy</button>
+                    <button class="toggle-btn active" type="button" data-difficulty="medium">Medium</button>
+                    <button class="toggle-btn" type="button" data-difficulty="hard">Hard</button>
+                </div>
+            </div>
         </div>
-        <div class="menu-row" id="difficulty-row">
-            <label for="difficulty">Difficulty</label>
-            <select id="difficulty">
-                <option value="easy">Easy</option>
-                <option value="medium" selected>Medium</option>
-                <option value="hard">Hard</option>
-            </select>
-        </div>
-        <button id="start-game" type="button">Start Game</button>
+
+        <button class="menu-btn btn-start" id="start-game" type="button">Start Game</button>
+        <button class="menu-btn btn-rules" id="rules-btn" type="button">System Archive (Rules)</button>
     </div>
+
+    <div id="rules-modal">
+        <div class="rules-content">
+            <h2>Simulation Rules</h2>
+            <p><strong>Objective:</strong> Reach any cell on the opponent's starting baseline to win.</p>
+            <br>
+            <p><strong>Movement:</strong> Move your pawn one square horizontally or vertically, or jump over an adjacent opponent.</p>
+            <br>
+            <p><strong>Walls:</strong> Place a barrier to block your opponent. Walls span exactly two squares. You cannot completely seal off an opponent's path to the goal.</p>
+        </div>
+        <button class="menu-btn btn-rules" id="close-rules-btn" type="button">Acknowledge</button>
+    </div>
+
     <div id="app" hidden>
         <div id="hud">
             <div class="hud-player" data-player="0">Player 1 — <span id="walls-0"></span> walls</div>
