@@ -2,13 +2,13 @@ const CELL = 56;
 const GAP = 10;
 const STEP = CELL + GAP;
 
-const CELL_COLOR = '#2a2a3d';
-const GRID_BACKGROUND = '#1e1e2e';
-const WALL_COLOR = '#e0c341';
-const PLAYER_COLORS = ['#4fd8ff', '#ff6b6b'];
-const HIGHLIGHT_COLOR = 'rgba(224, 195, 65, 0.25)';
-const HIGHLIGHT_HOVER_COLOR = 'rgba(224, 195, 65, 0.55)';
-const WALL_GHOST_LEGAL_COLOR = 'rgba(224, 195, 65, 0.55)';
+const CELL_COLOR = '#12141f';
+const CELL_BORDER_COLOR = '#1a1d2d';
+const GRID_BACKGROUND = '#0a0b12';
+const PLAYER_COLORS = ['#00f3ff', '#ff2a9d'];
+const PLAYER_GLOWS = ['rgba(0, 243, 255, 0.8)', 'rgba(255, 42, 157, 0.8)'];
+const PLAYER_DIMS = ['rgba(0, 243, 255, 0.25)', 'rgba(255, 42, 157, 0.25)'];
+const HIGHLIGHT_HOVER_ALPHA = 0.55;
 const WALL_GHOST_ILLEGAL_COLOR = 'rgba(255, 90, 90, 0.55)';
 
 function boardPixelSize(boardSize) {
@@ -20,18 +20,22 @@ function drawCells(ctx, boardSize) {
     ctx.fillRect(0, 0, boardPixelSize(boardSize), boardPixelSize(boardSize));
 
     ctx.fillStyle = CELL_COLOR;
+    ctx.strokeStyle = CELL_BORDER_COLOR;
     for (let row = 0; row < boardSize; row++) {
         for (let col = 0; col < boardSize; col++) {
             ctx.fillRect(col * STEP, row * STEP, CELL, CELL);
+            ctx.strokeRect(col * STEP + 0.5, row * STEP + 0.5, CELL - 1, CELL - 1);
         }
     }
 }
 
-function drawHighlights(ctx, legalTargets, hoverCell) {
+function drawHighlights(ctx, legalTargets, hoverCell, playerIndex) {
     for (const [row, col] of legalTargets) {
         const isHover = hoverCell && hoverCell[0] === row && hoverCell[1] === col;
-        ctx.fillStyle = isHover ? HIGHLIGHT_HOVER_COLOR : HIGHLIGHT_COLOR;
+        ctx.fillStyle = isHover ? PLAYER_GLOWS[playerIndex] : PLAYER_DIMS[playerIndex];
+        ctx.globalAlpha = isHover ? HIGHLIGHT_HOVER_ALPHA : 1;
         ctx.fillRect(col * STEP, row * STEP, CELL, CELL);
+        ctx.globalAlpha = 1;
     }
 }
 
@@ -42,17 +46,25 @@ function wallRect(orientation, row, col) {
     return [col * STEP + CELL, row * STEP, GAP, 2 * CELL + GAP];
 }
 
+function drawGlowingRect(ctx, rect, color, glowColor) {
+    ctx.save();
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = glowColor;
+    ctx.fillStyle = color;
+    ctx.fillRect(...rect);
+    ctx.restore();
+}
+
 function drawWalls(ctx, state) {
-    ctx.fillStyle = WALL_COLOR;
-    for (const [row, col] of state.horizontal_walls) {
-        ctx.fillRect(...wallRect('horizontal', row, col));
+    for (const [row, col, owner] of state.horizontal_walls) {
+        drawGlowingRect(ctx, wallRect('horizontal', row, col), PLAYER_COLORS[owner], PLAYER_GLOWS[owner]);
     }
-    for (const [row, col] of state.vertical_walls) {
-        ctx.fillRect(...wallRect('vertical', row, col));
+    for (const [row, col, owner] of state.vertical_walls) {
+        drawGlowingRect(ctx, wallRect('vertical', row, col), PLAYER_COLORS[owner], PLAYER_GLOWS[owner]);
     }
 }
 
-function drawWallGhost(ctx, hoverWall, legalWalls) {
+function drawWallGhost(ctx, hoverWall, legalWalls, playerIndex) {
     if (!hoverWall) {
         return;
     }
@@ -60,8 +72,13 @@ function drawWallGhost(ctx, hoverWall, legalWalls) {
     const isLegal = legalWalls.some(
         ([o, [r, c]]) => o === orientation && r === position[0] && c === position[1]
     );
-    ctx.fillStyle = isLegal ? WALL_GHOST_LEGAL_COLOR : WALL_GHOST_ILLEGAL_COLOR;
-    ctx.fillRect(...wallRect(orientation, position[0], position[1]));
+    const rect = wallRect(orientation, position[0], position[1]);
+    if (isLegal) {
+        drawGlowingRect(ctx, rect, PLAYER_COLORS[playerIndex], PLAYER_GLOWS[playerIndex]);
+    } else {
+        ctx.fillStyle = WALL_GHOST_ILLEGAL_COLOR;
+        ctx.fillRect(...rect);
+    }
 }
 
 function drawPlayers(ctx, state) {
@@ -69,9 +86,19 @@ function drawPlayers(ctx, state) {
         const [row, col] = player.position;
         const cx = col * STEP + CELL / 2;
         const cy = row * STEP + CELL / 2;
+
+        ctx.save();
+        ctx.shadowBlur = 18;
+        ctx.shadowColor = PLAYER_COLORS[index];
         ctx.beginPath();
-        ctx.arc(cx, cy, CELL * 0.35, 0, Math.PI * 2);
+        ctx.arc(cx, cy, CELL * 0.3, 0, Math.PI * 2);
         ctx.fillStyle = PLAYER_COLORS[index];
+        ctx.fill();
+        ctx.restore();
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, CELL * 0.12, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
         ctx.fill();
     });
 }
@@ -83,8 +110,8 @@ function renderBoard(canvas, state, legalTargets, hoverCell, legalWalls, hoverWa
 
     const ctx = canvas.getContext('2d');
     drawCells(ctx, state.board_size);
-    drawHighlights(ctx, legalTargets, hoverCell);
-    drawWallGhost(ctx, hoverWall, legalWalls);
+    drawHighlights(ctx, legalTargets, hoverCell, state.turn);
+    drawWallGhost(ctx, hoverWall, legalWalls, state.turn);
     drawWalls(ctx, state);
     drawPlayers(ctx, state);
 }
@@ -150,12 +177,21 @@ function updateHud(state) {
     });
 
     const turnIndicator = document.getElementById('turn-indicator');
-    turnIndicator.textContent = state.winner === null ? `Player ${state.turn + 1}'s turn` : '';
+    turnIndicator.classList.remove('status-p1', 'status-p2');
+    if (state.winner === null) {
+        turnIndicator.textContent = `Player ${state.turn + 1}'s turn`;
+        turnIndicator.classList.add(state.turn === 0 ? 'status-p1' : 'status-p2');
+    } else {
+        turnIndicator.textContent = '';
+    }
 
     const overlay = document.getElementById('game-over');
     overlay.hidden = state.winner === null;
     if (state.winner !== null) {
-        document.getElementById('game-over-message').textContent = `Player ${state.winner + 1} wins!`;
+        const message = document.getElementById('game-over-message');
+        message.textContent = `Player ${state.winner + 1} wins!`;
+        message.style.color = PLAYER_COLORS[state.winner];
+        message.style.textShadow = `0 0 12px ${PLAYER_GLOWS[state.winner]}`;
     }
 }
 

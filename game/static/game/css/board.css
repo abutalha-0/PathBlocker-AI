@@ -1,12 +1,29 @@
+:root {
+    --bg-color: #050508;
+    --board-bg: #0a0b12;
+    --cell-bg: #12141f;
+    --cell-border: #1a1d2d;
+
+    --cyan-color: #00f3ff;
+    --cyan-glow: rgba(0, 243, 255, 0.8);
+    --cyan-dim: rgba(0, 243, 255, 0.2);
+
+    --pink-color: #ff2a9d;
+    --pink-glow: rgba(255, 42, 157, 0.8);
+    --pink-dim: rgba(255, 42, 157, 0.2);
+
+    --text-main: #ffffff;
+}
+
 body {
     margin: 0;
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    background: #14141f;
-    font-family: sans-serif;
-    color: #e8e8f0;
+    background: var(--bg-color);
+    font-family: 'Courier New', Courier, monospace;
+    color: var(--text-main);
 }
 
 /* Custom display rules below would otherwise override the browser's
@@ -26,6 +43,8 @@ body {
 #menu h1 {
     margin: 0;
     font-size: 22px;
+    letter-spacing: 3px;
+    text-shadow: 0 0 10px var(--cyan-glow);
 }
 
 .menu-row {
@@ -33,15 +52,20 @@ body {
     align-items: center;
     gap: 16px;
     font-size: 14px;
+    letter-spacing: 1px;
 }
 
 #start-game {
     padding: 8px 24px;
     font-size: 14px;
-    background: #e0c341;
-    color: #14141f;
-    border: none;
+    font-family: inherit;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    background: transparent;
+    color: var(--cyan-color);
+    border: 1px solid var(--cyan-color);
     border-radius: 4px;
+    box-shadow: 0 0 10px var(--cyan-dim);
     cursor: pointer;
 }
 
@@ -56,25 +80,32 @@ body {
     display: flex;
     align-items: center;
     gap: 24px;
-    font-size: 14px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    letter-spacing: 2px;
 }
 
 #back-to-menu {
     padding: 4px 10px;
     font-size: 12px;
+    font-family: inherit;
+    letter-spacing: 1px;
+    text-transform: uppercase;
     background: transparent;
-    color: #e8e8f0;
-    border: 1px solid #3a3a4d;
+    color: var(--text-main);
+    border: 1px solid var(--cell-border);
     border-radius: 4px;
     cursor: pointer;
 }
 
 .hud-player[data-player="0"] {
-    color: #4fd8ff;
+    color: var(--cyan-color);
+    text-shadow: 0 0 8px var(--cyan-glow);
 }
 
 .hud-player[data-player="1"] {
-    color: #ff6b6b;
+    color: var(--pink-color);
+    text-shadow: 0 0 8px var(--pink-glow);
 }
 
 .hud-player.active {
@@ -82,45 +113,77 @@ body {
 }
 
 #turn-indicator {
-    color: #e0c341;
-    font-size: 13px;
+    font-size: 1rem;
+    font-weight: bold;
+    letter-spacing: 1px;
+    padding: 8px 20px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    min-width: 160px;
+    text-align: center;
+}
+
+#turn-indicator.status-p1 {
+    color: var(--cyan-color);
+    text-shadow: 0 0 8px var(--cyan-glow);
+    border-color: var(--cyan-color);
+    background: var(--cyan-dim);
+}
+
+#turn-indicator.status-p2 {
+    color: var(--pink-color);
+    text-shadow: 0 0 8px var(--pink-glow);
+    border-color: var(--pink-color);
+    background: var(--pink-dim);
 }
 
 #board-wrap {
     position: relative;
+    background: var(--board-bg);
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid #333;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
 }
 
 #board {
-    background: #1e1e2e;
+    background: var(--board-bg);
     border-radius: 6px;
     display: block;
 }
 
 #game-over {
     position: absolute;
-    inset: 0;
+    inset: 16px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 16px;
-    background: rgba(10, 10, 16, 0.85);
+    background: rgba(5, 5, 8, 0.9);
     border-radius: 6px;
 }
 
 #game-over-message {
     font-size: 22px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
     margin: 0;
 }
 
 #play-again {
     padding: 8px 20px;
     font-size: 14px;
-    background: #e0c341;
-    color: #14141f;
-    border: none;
+    font-family: inherit;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    background: transparent;
+    color: var(--pink-color);
+    border: 1px solid var(--pink-color);
     border-radius: 4px;
+    box-shadow: 0 0 10px var(--pink-dim);
     cursor: pointer;
 }

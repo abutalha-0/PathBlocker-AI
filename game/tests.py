@@ -56,6 +56,16 @@ class SerializationTests(TestCase):
             [(p.position, p.goal_row, p.walls_left) for p in state.players],
         )
 
+    def test_round_trip_preserves_wall_owners(self):
+        state = GameState.new_game()
+        place_wall(state, 'horizontal', (4, 4), state.players[0])
+        place_wall(state, 'vertical', (2, 2), state.players[1])
+
+        restored = deserialize_state(serialize_state(state))
+
+        self.assertEqual(restored.horizontal_walls[(4, 4)], 0)
+        self.assertEqual(restored.vertical_walls[(2, 2)], 1)
+
     def test_round_trip_preserves_winner(self):
         state = GameState.new_game()
         state.winner = 1
@@ -78,7 +88,7 @@ class PawnMovementTests(TestCase):
     def test_wall_blocks_move_in_that_direction(self):
         state = GameState.new_game()
         state.players[0].position = (4, 4)
-        state.horizontal_walls.add((4, 4))
+        state.horizontal_walls[(4, 4)] = 0
         moves = get_pawn_moves(state, state.players[0])
         self.assertNotIn((5, 4), moves)
         self.assertCountEqual(moves, [(3, 4), (4, 3), (4, 5)])
@@ -109,7 +119,7 @@ class PawnJumpTests(TestCase):
         state = GameState.new_game()
         state.players[0].position = (4, 4)
         state.players[1].position = (5, 4)
-        state.horizontal_walls.add((5, 4))
+        state.horizontal_walls[(5, 4)] = 0
         landings = get_jump_moves(state, state.players[0])
         self.assertCountEqual(landings, [(5, 3), (5, 5)])
 
@@ -117,8 +127,8 @@ class PawnJumpTests(TestCase):
         state = GameState.new_game()
         state.players[0].position = (4, 4)
         state.players[1].position = (5, 4)
-        state.horizontal_walls.add((5, 4))
-        state.vertical_walls.add((4, 4))
+        state.horizontal_walls[(5, 4)] = 0
+        state.vertical_walls[(4, 4)] = 0
         self.assertEqual(get_jump_moves(state, state.players[0]), [(5, 3)])
 
     def test_no_jump_when_not_adjacent(self):
@@ -129,7 +139,7 @@ class PawnJumpTests(TestCase):
         state = GameState.new_game()
         state.players[0].position = (4, 4)
         state.players[1].position = (5, 4)
-        state.horizontal_walls.add((4, 4))
+        state.horizontal_walls[(4, 4)] = 0
         self.assertEqual(get_jump_moves(state, state.players[0]), [])
 
 
@@ -139,6 +149,13 @@ class WallPlacementTests(TestCase):
         place_wall(state, 'horizontal', (4, 4), state.players[0])
         self.assertIn((4, 4), state.horizontal_walls)
         self.assertEqual(state.players[0].walls_left, 9)
+
+    def test_wall_records_the_placing_player_as_owner(self):
+        state = GameState.new_game()
+        place_wall(state, 'horizontal', (4, 4), state.players[0])
+        place_wall(state, 'vertical', (2, 2), state.players[1])
+        self.assertEqual(state.horizontal_walls[(4, 4)], 0)
+        self.assertEqual(state.vertical_walls[(2, 2)], 1)
 
     def test_duplicate_slot_is_invalid(self):
         state = GameState.new_game()
@@ -216,13 +233,13 @@ class WallLegalityTests(TestCase):
         state.players[0].position = (0, 0)
         place_wall(state, 'horizontal', (0, 0), state.players[0])
         can_place_wall(state, 'vertical', (0, 0), state.players[0])
-        self.assertEqual(state.vertical_walls, set())
+        self.assertEqual(state.vertical_walls, {})
 
     def test_fully_boxed_corner_has_no_path(self):
         state = GameState.new_game()
         state.players[0].position = (0, 0)
-        state.horizontal_walls.add((0, 0))
-        state.vertical_walls.add((0, 1))
+        state.horizontal_walls[(0, 0)] = 0
+        state.vertical_walls[(0, 1)] = 0
         self.assertFalse(has_path_to_goal(state, state.players[0]))
 
     def test_detour_around_separated_walls_still_has_path(self):
@@ -255,8 +272,8 @@ class ShortestPathTests(TestCase):
     def test_unreachable_goal_returns_none(self):
         state = GameState.new_game()
         state.players[0].position = (0, 0)
-        state.horizontal_walls.add((0, 0))
-        state.vertical_walls.add((0, 1))
+        state.horizontal_walls[(0, 0)] = 0
+        state.vertical_walls[(0, 1)] = 0
         self.assertIsNone(shortest_path_length(state, state.players[0]))
 
 
@@ -395,7 +412,7 @@ class EvaluateTests(TestCase):
     def test_win_dominates_the_path_distance_heuristic(self):
         state = GameState.new_game()
         state.winner = 0
-        state.horizontal_walls.add((0, 7))
+        state.horizontal_walls[(0, 7)] = 0
         self.assertGreater(evaluate(state, 0), 8)
         self.assertEqual(evaluate(state, 1), -evaluate(state, 0))
 

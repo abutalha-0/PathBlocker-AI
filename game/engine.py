@@ -31,12 +31,13 @@ class Player:
 
 @dataclass
 class GameState:
-    # Each wall entry (row, col) marks the intersection it's anchored to,
+    # Each wall key (row, col) marks the intersection it's anchored to,
     # 0..7 on both axes; a wall spans two cell-edges from that intersection.
+    # The value is the index of the player who placed it.
     players: list[Player]
     turn: int = 0
-    horizontal_walls: set[tuple[int, int]] = field(default_factory=set)
-    vertical_walls: set[tuple[int, int]] = field(default_factory=set)
+    horizontal_walls: dict[tuple[int, int], int] = field(default_factory=dict)
+    vertical_walls: dict[tuple[int, int], int] = field(default_factory=dict)
     winner: int | None = None
 
     @classmethod
@@ -176,11 +177,11 @@ def can_place_wall(state, orientation, position, player=None):
     if (row, col) in crossing:
         return False
 
-    walls.add(position)
+    walls[position] = -1  # placeholder owner; only legality matters here
     try:
         return all(has_path_to_goal(state, p) for p in state.players)
     finally:
-        walls.discard(position)
+        del walls[position]
 
 
 def place_wall(state, orientation, position, player=None):
@@ -189,7 +190,7 @@ def place_wall(state, orientation, position, player=None):
         raise ValueError(f'illegal wall placement: {orientation} at {position}')
 
     walls = state.horizontal_walls if orientation == 'horizontal' else state.vertical_walls
-    walls.add(position)
+    walls[position] = state.players.index(player)
     player.walls_left -= 1
 
 
@@ -418,8 +419,8 @@ def serialize_state(state):
             }
             for p in state.players
         ],
-        'horizontal_walls': [list(w) for w in state.horizontal_walls],
-        'vertical_walls': [list(w) for w in state.vertical_walls],
+        'horizontal_walls': [[row, col, owner] for (row, col), owner in state.horizontal_walls.items()],
+        'vertical_walls': [[row, col, owner] for (row, col), owner in state.vertical_walls.items()],
     }
 
 
@@ -435,7 +436,7 @@ def deserialize_state(data):
     return GameState(
         players=players,
         turn=data['turn'],
-        horizontal_walls={tuple(w) for w in data['horizontal_walls']},
-        vertical_walls={tuple(w) for w in data['vertical_walls']},
+        horizontal_walls={(row, col): owner for row, col, owner in data['horizontal_walls']},
+        vertical_walls={(row, col): owner for row, col, owner in data['vertical_walls']},
         winner=data.get('winner'),
     )
