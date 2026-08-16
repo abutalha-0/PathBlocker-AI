@@ -299,7 +299,10 @@ WIN_SCORE = 1000
 # Without a cost for spending walls, the search treats every wall's
 # path-distance swing as pure profit and over-uses them relative to
 # just advancing; this makes spending one a deliberate trade-off.
-WALL_CONSERVATION_WEIGHT = 3
+# Kept small so it discourages aimless walls without suppressing
+# genuinely good ones — too high and the AI only ever blocks when
+# forced, which plays passively and isn't much of a challenge.
+WALL_CONSERVATION_WEIGHT = 0.5
 
 
 def evaluate(state, player_index):
