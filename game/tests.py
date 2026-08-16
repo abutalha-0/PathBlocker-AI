@@ -28,10 +28,10 @@ from game.engine import (
 class GameStateTests(TestCase):
     def test_new_game_sets_up_standard_start(self):
         state = GameState.new_game()
-        self.assertEqual(state.players[0].position, (0, 4))
-        self.assertEqual(state.players[0].goal_row, 8)
-        self.assertEqual(state.players[1].position, (8, 4))
-        self.assertEqual(state.players[1].goal_row, 0)
+        self.assertEqual(state.players[0].position, (8, 4))
+        self.assertEqual(state.players[0].goal_row, 0)
+        self.assertEqual(state.players[1].position, (0, 4))
+        self.assertEqual(state.players[1].goal_row, 8)
         self.assertTrue(all(p.walls_left == 10 for p in state.players))
         self.assertEqual(state.turn, 0)
         self.assertIsNone(state.winner)
@@ -77,7 +77,7 @@ class PawnMovementTests(TestCase):
     def test_open_start_has_three_moves(self):
         state = GameState.new_game()
         moves = get_pawn_moves(state, state.players[0])
-        self.assertCountEqual(moves, [(0, 3), (0, 5), (1, 4)])
+        self.assertCountEqual(moves, [(8, 3), (8, 5), (7, 4)])
 
     def test_corner_has_only_two_moves(self):
         state = GameState.new_game()
@@ -237,10 +237,10 @@ class WallLegalityTests(TestCase):
 
     def test_fully_boxed_corner_has_no_path(self):
         state = GameState.new_game()
-        state.players[0].position = (0, 0)
+        state.players[1].position = (0, 0)
         state.horizontal_walls[(0, 0)] = 0
         state.vertical_walls[(0, 1)] = 0
-        self.assertFalse(has_path_to_goal(state, state.players[0]))
+        self.assertFalse(has_path_to_goal(state, state.players[1]))
 
     def test_detour_around_separated_walls_still_has_path(self):
         state = GameState.new_game()
@@ -259,8 +259,8 @@ class ShortestPathTests(TestCase):
 
     def test_zero_distance_when_already_on_goal_row(self):
         state = GameState.new_game()
-        state.players[0].position = (8, 0)
-        self.assertEqual(shortest_path_length(state, state.players[0]), 0)
+        state.players[1].position = (8, 0)
+        self.assertEqual(shortest_path_length(state, state.players[1]), 0)
 
     def test_wall_detour_increases_distance(self):
         state = GameState.new_game()
@@ -271,10 +271,10 @@ class ShortestPathTests(TestCase):
 
     def test_unreachable_goal_returns_none(self):
         state = GameState.new_game()
-        state.players[0].position = (0, 0)
+        state.players[1].position = (0, 0)
         state.horizontal_walls[(0, 0)] = 0
         state.vertical_walls[(0, 1)] = 0
-        self.assertIsNone(shortest_path_length(state, state.players[0]))
+        self.assertIsNone(shortest_path_length(state, state.players[1]))
 
 
 class GetLegalMovesTests(TestCase):
@@ -283,7 +283,7 @@ class GetLegalMovesTests(TestCase):
         moves = get_legal_moves(state, state.players[0])
         pawn_moves = [m for m in moves if m[0] == 'move']
         wall_moves = [m for m in moves if m[0] == 'wall']
-        self.assertCountEqual(pawn_moves, [('move', (0, 3)), ('move', (0, 5)), ('move', (1, 4))])
+        self.assertCountEqual(pawn_moves, [('move', (8, 3)), ('move', (8, 5)), ('move', (7, 4))])
         self.assertTrue(wall_moves)
         self.assertLess(len(wall_moves), 2 * WALL_GRID_SIZE * WALL_GRID_SIZE)
 
@@ -340,8 +340,8 @@ class NearPathWallCandidatesTests(TestCase):
 class ApplyMoveTests(TestCase):
     def test_legal_move_updates_position_and_switches_turn(self):
         state = GameState.new_game()
-        winner = apply_move(state, ('move', (1, 4)))
-        self.assertEqual(state.players[0].position, (1, 4))
+        winner = apply_move(state, ('move', (7, 4)))
+        self.assertEqual(state.players[0].position, (7, 4))
         self.assertEqual(state.turn, 1)
         self.assertIsNone(winner)
 
@@ -367,27 +367,27 @@ class ApplyMoveTests(TestCase):
 
     def test_win_detected_when_reaching_goal_row(self):
         state = GameState.new_game()
-        state.players[0].position = (7, 4)
-        state.players[1].position = (8, 8)
-        winner = apply_move(state, ('move', (8, 4)))
+        state.players[0].position = (1, 4)
+        state.players[1].position = (0, 8)
+        winner = apply_move(state, ('move', (0, 4)))
         self.assertEqual(winner, 0)
         self.assertEqual(state.winner, 0)
         self.assertTrue(is_winner(state.players[0]))
 
     def test_no_moves_allowed_after_game_is_won(self):
         state = GameState.new_game()
-        state.players[0].position = (7, 4)
-        state.players[1].position = (8, 8)
-        apply_move(state, ('move', (8, 4)))
+        state.players[0].position = (1, 4)
+        state.players[1].position = (0, 8)
+        apply_move(state, ('move', (0, 4)))
         with self.assertRaises(ValueError):
-            apply_move(state, ('move', (7, 8)))
+            apply_move(state, ('move', (1, 8)))
 
     def test_turn_alternates_across_moves(self):
         state = GameState.new_game()
         turns = [state.turn]
-        apply_move(state, ('move', (1, 4)))
-        turns.append(state.turn)
         apply_move(state, ('move', (7, 4)))
+        turns.append(state.turn)
+        apply_move(state, ('move', (1, 4)))
         turns.append(state.turn)
         self.assertEqual(turns, [0, 1, 0])
 
@@ -420,10 +420,10 @@ class EvaluateTests(TestCase):
 class MinimaxTests(TestCase):
     def test_picks_the_immediate_winning_move(self):
         state = GameState.new_game()
-        state.players[0].position = (7, 4)
-        state.players[1].position = (8, 8)
+        state.players[0].position = (1, 4)
+        state.players[1].position = (0, 8)
         score, move = minimax(state, depth=1, maximizing_index=0)
-        self.assertEqual(move, ('move', (8, 4)))
+        self.assertEqual(move, ('move', (0, 4)))
 
     def test_returns_a_legal_move_at_deeper_depth(self):
         state = GameState.new_game()
@@ -482,20 +482,20 @@ class ChooseGreedyMoveTests(TestCase):
     def test_picks_the_move_that_advances_furthest(self):
         state = GameState.new_game()
         move = choose_greedy_move(state, 0)
-        self.assertEqual(move, ('move', (1, 4)))
+        self.assertEqual(move, ('move', (7, 4)))
 
     def test_never_places_a_wall_even_when_one_would_help_more(self):
         state = GameState.new_game()
-        state.players[0].position = (7, 4)
-        state.players[1].position = (8, 8)
+        state.players[0].position = (1, 4)
+        state.players[1].position = (0, 8)
         move = choose_greedy_move(state, 0)
-        self.assertEqual(move, ('move', (8, 4)))
+        self.assertEqual(move, ('move', (0, 4)))
 
     def test_avoids_a_wall_blocking_the_direct_path(self):
         state = GameState.new_game()
-        place_wall(state, 'horizontal', (0, 3), state.players[0])
+        place_wall(state, 'horizontal', (7, 3), state.players[0])
         move = choose_greedy_move(state, 0)
-        self.assertIn(move, [('move', (0, 3)), ('move', (0, 5))])
+        self.assertIn(move, [('move', (8, 3)), ('move', (8, 5))])
 
 
 class ChooseMinimaxMoveTests(TestCase):
@@ -506,10 +506,10 @@ class ChooseMinimaxMoveTests(TestCase):
 
     def test_picks_the_immediate_winning_move(self):
         state = GameState.new_game()
-        state.players[0].position = (7, 4)
-        state.players[1].position = (8, 8)
+        state.players[0].position = (1, 4)
+        state.players[1].position = (0, 8)
         move = choose_minimax_move(state, 0, max_depth=2, time_budget=1.0)
-        self.assertEqual(move, ('move', (8, 4)))
+        self.assertEqual(move, ('move', (0, 4)))
 
     def test_respects_a_tiny_time_budget_by_falling_back_to_depth_one(self):
         state = GameState.new_game()

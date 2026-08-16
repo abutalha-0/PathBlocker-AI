@@ -42,8 +42,11 @@ class GameState:
 
     @classmethod
     def new_game(cls):
-        player_one = Player(position=(0, 4), goal_row=BOARD_SIZE - 1)
-        player_two = Player(position=(BOARD_SIZE - 1, 4), goal_row=0)
+        # Player one (human, moves first) starts at the bottom edge and
+        # aims for the top row; player two (AI) starts at the top and
+        # aims for the bottom.
+        player_one = Player(position=(BOARD_SIZE - 1, 4), goal_row=0)
+        player_two = Player(position=(0, 4), goal_row=BOARD_SIZE - 1)
         return cls(players=[player_one, player_two])
 
     @property
